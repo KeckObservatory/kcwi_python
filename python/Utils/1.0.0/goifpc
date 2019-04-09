@@ -1,0 +1,23 @@
+#! /kroot/rel/default/bin/kpython
+
+
+from KCWI import Blue
+import argparse
+
+
+description = "Take focal plane camera exposure(s)"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('nexp',help='number of exposures', type=int, default=1, nargs='?')
+
+
+
+if __name__ == '__main__':
+
+        args = parser.parse_args()
+
+        Blue.sequencefc(sequence=1)
+        Blue.goifpc(nexp=args.nexp)
+
+
+
+

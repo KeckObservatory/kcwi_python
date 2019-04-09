@@ -1,0 +1,24 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the observer"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('observer',nargs="?",default=None,help='Observer')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+   if args.observer == None:
+      sys.stdout.write(str(Procs.observer())+"\n")
+   else:
+     Procs.observer(observer = args.observer)
+
+
+
+
+

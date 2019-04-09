@@ -1,0 +1,28 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the N&S mask position"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('position',nargs="?",default=None, help='N&S position (Open, Test, Mask)')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+parser.add_argument('-quiet',required=False, default=False,action='store_true', help='If set, disable progress bar')
+
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   nas = Blue.nsmaskb(target=args.position,move=move,quiet=args.quiet)
+   say("N&S Mask: %s" % (nas))
+

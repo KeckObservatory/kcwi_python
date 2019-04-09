@@ -1,0 +1,207 @@
+#! @KPYTHON3@
+
+import sys,os
+import subprocess
+from PyQt5.QtWidgets import QFrame, QLabel,QHBoxLayout,QLineEdit,QPushButton,QVBoxLayout,QApplication,QCheckBox, QTextEdit, QWidget, QProgressBar, QGridLayout
+from PyQt5.QtCore import QThread, pyqtSignal, QProcess
+from QLed import QLed
+try:
+    import ktl
+    useKTL = True
+except:
+    print("KTL functions are not available")
+    useKTL = False
+
+
+def main():
+    app = QApplication(sys.argv)
+    w = MyWindow()
+    w.show()
+    sys.exit(app.exec_())
+
+class separator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
+        #self.setLineWidth(3)
+
+class keywordMonitor(QThread):
+    exchanger_status = pyqtSignal('QString')
+    mechanism_status = pyqtSignal('QString')
+    calunit_status = pyqtSignal('QString')
+    camfocus_status = pyqtSignal('QString')
+    grrot_status = pyqtSignal('QString')
+    artfilling_status = pyqtSignal('QString')
+
+    def __init__(self):
+        QThread.__init__(self)
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        if useKTL is False:
+            return
+
+        def status_callback(keyword):
+            if keyword == exchanger_status:
+                signal = self.exchanger_status
+            if keyword == mechanisms_status:
+                signal = self.mechanism_status
+            if keyword == calunit_status:
+                signal = self.calunit_status
+            if keyword == camfocus_homed:
+                signal = self.camfocus_status
+            if keyword == grrot_homed:
+                signal = self.grrot_status
+            if keyword == artfilling:
+                signal = self.artfilling_status
+
+            value = keyword['binary']
+            signal.emit(str(value))
+
+        exchanger_status = ktl.cache('kbes', 'status')
+        mechanisms_status = ktl.cache('kbms', 'status')
+        calunit_status = ktl.cache('kcas', 'status')
+        camfocus_homed = ktl.cache('kbms', 'fochomed')
+        grrot_homed = ktl.cache('kbes', 'grhomed')
+        artfilling = ktl.cache('kbms', 'artfilling')
+
+        monitored_keywords = [exchanger_status, mechanisms_status, calunit_status, camfocus_homed, grrot_homed, artfilling]
+        for keyword in monitored_keywords:
+            keyword.callback(status_callback)
+            keyword.monitor()
+
+        while True:
+            self.sleep(1)
+
+
+class MyWindow(QWidget):
+    def __init__(self, *args):
+        super().__init__()
+        self.init_ui()
+        self.setWindowTitle("KCWI Status")
+        self.start_keyword_monitor()
+
+    def init_ui(self):
+
+        self.layout = QGridLayout()
+
+        self.lbl1 = QLabel('Blue Exchanger')
+        self.exchanger_led_ok = QLed(onColour=QLed.Green, shape=QLed.Circle, offColour=QLed.Red)
+        self.exchanger_led_status = QLabel()
+        self.lbl2 = QLabel('Blue Mechanisms')
+        self.mechanisms_led_ok = QLed(onColour=QLed.Green, shape=QLed.Circle, offColour=QLed.Red)
+        self.mechanisms_led_status = QLabel()
+        self.lbl3 = QLabel('Calibration Unit')
+        self.calunit_led_ok = QLed(onColour=QLed.Green, shape=QLed.Circle, offColour=QLed.Red)
+        self.calunit_led_status = QLabel()
+        self.lbl4 = QLabel('Camera Focus')
+        self.camfocus_led_ok = QLed(onColour=QLed.Green, shape=QLed.Circle, offColour=QLed.Red)
+        self.camfocus_led_status = QLabel()
+        self.lbl5 = QLabel('Grating Rotator')
+        self.grrot_led_ok = QLed(onColour=QLed.Green, shape=QLed.Circle, offColour=QLed.Red)
+        self.grrot_led_status = QLabel()
+        self.lbl6 = QLabel('Cryo fill status')
+        self.artfilling_led_ok = QLed(onColour=QLed.Green, shape=QLed.Circle, offColour=QLed.Red)
+        self.artfilling_led_status = QLabel()
+
+        self.vline1 = separator()
+        self.vline2 = separator()
+        self.vline3 = separator()
+        self.vline4 = separator()
+        self.vline5 = separator()
+
+        self.layout.addWidget(self.lbl1, 0, 0)
+        self.layout.addWidget(self.vline1, 0, 1, 3, 1)
+        self.layout.addWidget(self.lbl2, 0, 2)
+        self.layout.addWidget(self.vline2, 0, 3, 3, 1)
+        self.layout.addWidget(self.lbl3, 0, 4)
+        self.layout.addWidget(self.vline3, 0, 5, 3, 1)
+        self.layout.addWidget(self.lbl4, 0, 6)
+        self.layout.addWidget(self.vline4, 0, 7, 3, 1)
+        self.layout.addWidget(self.lbl5, 0, 8)
+        self.layout.addWidget(self.vline5, 0, 9, 3, 1)
+        self.layout.addWidget(self.lbl6, 0, 10)
+
+        self.layout.addWidget(self.exchanger_led_ok, 1, 0)
+        self.layout.addWidget(self.exchanger_led_status, 2, 0)
+
+        self.layout.addWidget(self.mechanisms_led_ok, 1, 2)
+        self.layout.addWidget(self.mechanisms_led_status, 2, 2)
+
+        self.layout.addWidget(self.calunit_led_ok, 1, 4)
+        self.layout.addWidget(self.calunit_led_status, 2, 4)
+
+        self.layout.addWidget(self.camfocus_led_ok, 1, 6)
+        self.layout.addWidget(self.camfocus_led_status, 2, 6)
+
+        self.layout.addWidget(self.grrot_led_ok, 1, 8)
+        self.layout.addWidget(self.grrot_led_status, 2, 8)
+
+        self.layout.addWidget(self.artfilling_led_ok, 1, 10)
+        self.layout.addWidget(self.artfilling_led_status, 2, 10)
+
+        self.setLayout(self.layout)
+
+    ########## UPDATE keywords
+
+    def update_exchanger_status(self, value):
+        self.exchanger_led_status.setText(value)
+        if value == "OK":
+            self.exchanger_led_ok.value = True
+        else:
+            self.exchanger_led_ok.value = False
+
+    def update_mechanisms_status(self, value):
+        self.mechanisms_led_status.setText(value)
+        if value == "OK":
+            self.mechanisms_led_ok.value = True
+        else:
+            self.mechanisms_led_ok.value = False
+
+    def update_calunit_status(self, value):
+        self.calunit_led_status.setText(value)
+        if value == "OK":
+            self.calunit_led_ok.value = True
+        else:
+            self.calunit_led_ok.value = False
+
+    def update_camfocus_status(self, value):
+        if value == "1":
+            self.camfocus_led_ok.value = True
+            self.camfocus_led_status.setText("Homed")
+        else:
+            self.camfocus_led_ok.value = False
+            self.camfocus_led_status.setText("NOT Homed")
+
+    def update_grrot_status(self, value):
+        if value == "1":
+            self.grrot_led_ok.value = True
+            self.grrot_led_status.setText("Homed")
+        else:
+            self.grrot_led_ok.value = False
+            self.grrot_led_status.setText("NOT Homed")
+
+    def update_artfilling_status(self, value):
+        if value == "0":
+            self.artfilling_led_ok.value = True
+            self.artfilling_led_status.setText("NOT Filling (OK)")
+        else:
+            self.artfilling_led_ok.value = False
+            self.artfilling_led_status.setText("KCWI in fill position")
+
+    def start_keyword_monitor(self):
+        self.keyword_thread = keywordMonitor()
+        self.keyword_thread.exchanger_status.connect(self.update_exchanger_status)
+        self.keyword_thread.mechanism_status.connect(self.update_mechanisms_status)
+        self.keyword_thread.calunit_status.connect(self.update_calunit_status)
+        self.keyword_thread.camfocus_status.connect(self.update_camfocus_status)
+        self.keyword_thread.grrot_status.connect(self.update_grrot_status)
+        self.keyword_thread.artfilling_status.connect(self.update_artfilling_status)
+        self.keyword_thread.start()
+
+
+if __name__ == "__main__":
+    main()

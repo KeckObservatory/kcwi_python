@@ -1,0 +1,21 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Park the BEX mechanisms"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   say("Parking BEX mechanisms")
+   say("Parking Filter")
+   filter = Blue.filterb(target="None",move=True)
+   say("Parking Grating")
+   grating = Blue.gratingb(target="None",move=True)
+

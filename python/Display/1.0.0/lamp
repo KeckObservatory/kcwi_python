@@ -1,0 +1,25 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Calibration
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Turn on/off or query status of calibration lamps"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('lamp',nargs="?",default=None, help='Lamp name (fear,thar,continuum|led,all)')
+parser.add_argument('action',nargs="?",default=None, help='on,off. If omitted, returns status', choices=["on","off","ON","OFF"])
+
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   status = Calibration.lamp(lamp=args.lamp,action=args.action)
+   if status:
+      say(status)
+
+
+

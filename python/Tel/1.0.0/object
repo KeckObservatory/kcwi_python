@@ -1,0 +1,25 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the object"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('object',nargs="*",default=None,help='Object')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+   if len(args.object) == 0:
+      object = Procs.object()
+      sys.stdout.write(str(object)+"\n")
+   else:
+     Procs.object(object=' '.join(args.object))
+
+
+
+
+

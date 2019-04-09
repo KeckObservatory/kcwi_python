@@ -1,0 +1,7 @@
+.idea
+__pycache__
+*.*~
+.hlist
+.olist
+.svnignore
+1.0

@@ -1,0 +1,32 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Calibration
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the position of the calibration mirror"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('position',nargs="?",default=None, help='Calibration mirror  position (Sky, Mirror, Filter')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+parser.add_argument('-quiet',required=False, default=False,action='store_true', help='If set, disable progress bar')
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   print "Calibration mirror: "+str(args.position)
+   print "NoMove: "+str(args.nomove)
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   calmirror = Calibration.cal_mirror(position=args.position, move=move, quiet=args.quiet)
+   say("Caibration mirror position: %s" % (calmirror))
+
+
+

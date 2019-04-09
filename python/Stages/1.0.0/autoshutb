@@ -1,0 +1,20 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse, sys
+
+# Parsing arguments
+description = "Show or modify the blue camera autoshutter"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('mode',nargs="?",default=None, help='autoshut (0 or 1)', type=int)
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   autoshut = Blue.autoshutb(args.mode)
+   sys.stdout.write("Blue camera autoshutter is: %s\n" % (autoshut))
+
+
+

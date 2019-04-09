@@ -1,0 +1,31 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Calibration
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the image slicer"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('slicer',nargs="?",default=None, help='Slicer to be selected')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+parser.add_argument('-quiet',required=False, default=False,action='store_true', help='If set, disable progress bar')
+
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   #print "Slicer: "+str(args.slicer)
+   #print "NoMove: "+str(args.nomove)
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   slicer = Calibration.image_slicer(target=args.slicer,move=move,quiet=args.quiet)
+   say("Slicer: %s" % (slicer))
+

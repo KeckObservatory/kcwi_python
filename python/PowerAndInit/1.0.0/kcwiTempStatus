@@ -1,0 +1,22 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import PowerInit
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show temperature status of the instrument"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+
+   
+   t1,t2 = PowerInit.kcwiTempStatus()
+
+
+
+
+

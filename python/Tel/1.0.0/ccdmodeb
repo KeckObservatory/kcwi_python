@@ -1,0 +1,20 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse, sys
+
+# Parsing arguments
+description = "Show or modify the blue camera gain ccdmode"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('ccdmode',nargs="?",default=None, help='CCD mode (0 or 1)', type=int)
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   ccdmode = Blue.ccdmodeb(args.ccdmode)
+   sys.stdout.write("Blue camera ccd mode is: %s\n" % (ccdmode))
+
+
+

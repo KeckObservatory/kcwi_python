@@ -1,0 +1,27 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the blue peak wavelength"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('pwave',nargs="?",default=None, help='Requested peak wavelength')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+
+parser.add_argument('-quiet',required=False, default=False,action='store_true', help='If set, do not display progress bar')
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   result = Blue.pwaveb(pwave=args.pwave,move=move,quiet=args.quiet)
+   say("Peak    wavelength : %s" % (result))
+

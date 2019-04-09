@@ -1,0 +1,7 @@
+# Region file format: DS9 version 4.1
+global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1
+image
+# compass(60, 60, 15) compass=fk5 {N} {E} 1 1 color=red width=3 font="helvetica 14 normal roman" fixed=1
+box(255, 261, 90,  54, 0) # color=blue width=2 move=0 resize=0 rotate=0
+box(255, 261,  45, 54, 0) # color=magenta width=2 move=0 resize=0 rotate=0
+box(255, 261,  22.5, 54, 0) # color=darkgreen width=2 move=0 resize=0 rotate=0

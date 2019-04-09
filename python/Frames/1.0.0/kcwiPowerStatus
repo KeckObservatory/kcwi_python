@@ -1,0 +1,22 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import PowerInit
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show power status of the instrument"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+
+   
+   p1,p2,p3 = PowerInit.kcwiPowerStatus()
+
+
+
+
+

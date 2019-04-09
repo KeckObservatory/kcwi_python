@@ -1,0 +1,20 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse
+
+# parsing arguments
+description = "Create a new data directory (update file counter)"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('disk',nargs="?",default=None, help='Data disk to use (e.g. /sdata405')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+
+   Procs.newdir(disk=args.disk)
+
+
+

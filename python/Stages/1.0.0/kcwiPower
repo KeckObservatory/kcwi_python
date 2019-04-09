@@ -1,0 +1,25 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import PowerInit
+import argparse
+import sys
+
+# Parsing arguments
+description = "Turn on or off the power to the instrument"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('servernumber',nargs='?',default=None, help='Server number', choices=['1','2','3'])
+parser.add_argument('plugnumber',nargs='?',default=None, help='Plug number', choices=['1','2','3','4','5','6','7','8'])
+parser.add_argument('action',nargs='?',default=None, help='requested action. Value are "on","off" or "cycle"', choices=['on','off','cycle'])
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+
+   
+   PowerInit.kcwiPower(serverNumber=args.servernumber, plugNumber=args.plugnumber, action=args.action)
+
+
+
+
+

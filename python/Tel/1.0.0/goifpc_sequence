@@ -1,0 +1,26 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+
+import argparse
+
+
+description = "Take focal plane camera sequences"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('nexp',help='number of sequences', type=int, default=1, nargs='?')
+parser.add_argument('sequence', help='number of exposures per sequence', type=int, default=1, nargs='?')
+parser.add_argument('trigtime', help='time between exposures',type=float,default=1,nargs='?')
+
+
+if __name__ == '__main__':
+
+        args = parser.parse_args()
+
+        Blue.trigtime(trigtime=args.trigtime)
+        Blue.sequence(sequence=args.sequence)
+
+        Blue.goifpc(nexp=args.nexp)
+
+
+
+

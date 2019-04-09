@@ -1,0 +1,22 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Calibration
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Open or close the hatch"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('status',nargs="?",default=None, help='open,close. If omitted, returns status', choices=["open","close","OPEN","CLOSE"])
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   status = Calibration.hatch(status=args.status)
+   if int(status) == 1:
+      say("Open")
+   if int(status) == 0:
+      say("Closed")
+

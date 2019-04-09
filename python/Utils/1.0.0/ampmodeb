@@ -1,0 +1,23 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse, sys
+from argparse import RawDescriptionHelpFormatter
+
+# Parsing arguments
+description = "Show or modify the blue camera amplifier mode"
+epilog="Available modes are:\n0 : quad (ALL)\n1 : single C \n2 : single E\n3 : single D\n4 : single F\n5 : single B\n6 : single G\n7 : single A\n8 : single H\n9 : dual (A&B)\n10 : dual (C&D)"
+
+parser = argparse.ArgumentParser(description=description, epilog = epilog, formatter_class=RawDescriptionHelpFormatter)
+parser.add_argument('ampmode',nargs="?",default=None, help='Amplifier mode', type=int)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   ampmode = Blue.ampmodeb(ampmode=args.ampmode)
+   sys.stdout.write("Blue camera amplifier mode is: %s\n" % (ampmode))
+
+
+
+

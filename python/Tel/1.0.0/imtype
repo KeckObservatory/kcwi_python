@@ -1,0 +1,24 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the imtype"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('imtype',nargs="?",default=None,help='Image type')
+
+
+if __name__=="__main__":
+
+   args = parser.parse_args()
+   if args.imtype == None:
+      imtype = Procs.imtype()
+      sys.stdout.write(str(imtype)+"\n")
+   else:
+     Procs.imtype(imtype = args.imtype)
+
+
+
+
+

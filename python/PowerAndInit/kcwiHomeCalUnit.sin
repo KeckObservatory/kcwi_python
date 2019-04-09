@@ -1,0 +1,21 @@
+#! @KPYTHON@
+
+from KCWI import PowerInit
+import argparse
+import sys
+
+# Parsing arguments
+description = "Home the calibration unit"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+   
+   PowerInit.homeCalUnit()
+
+
+
+
+
+

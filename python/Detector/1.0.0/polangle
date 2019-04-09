@@ -1,0 +1,30 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Calibration
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the polarizer angle"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('angle',nargs="?",default=None, help='Polarizer angle')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+parser.add_argument('-quiet',required=False, default=False,action='store_true', help='If set, disable progress bar')
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   #print "Polarizer angle: "+str(args.angle)
+   #print "NoMove: "+str(args.nomove)
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   polangle = Calibration.polangle(angle=args.angle,move=move, quiet=args.quiet)
+   say("Polarizer angle: %s" % (polangle))
+

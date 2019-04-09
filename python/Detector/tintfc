@@ -1,0 +1,20 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the focal plane camera exposure time"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('exptime',nargs="?",default=None, help='Exposure time')
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   ttime = Blue.tintfc(exptime = args.exptime)
+   sys.stdout.write("Exposure time: %s\n" % (str(ttime)))
+
+
+

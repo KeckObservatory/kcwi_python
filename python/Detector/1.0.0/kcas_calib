@@ -1,0 +1,608 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Calibration, Blue
+from KCWI.Helper import say
+import argparse
+import sys, os, time
+import ktl
+import signal
+from astropy.io import fits
+import glob
+from KCWI.Logging import kcwiLog
+import datetime
+
+# setup logging:
+# Current Day
+Day = time.strftime("%m-%d-%Y", time.localtime())
+# Current Time
+Time = time.strftime("%I:%M:%S-%p", time.localtime())
+LOG_FNAME = 'kcas_calib_%s_%s.log' % (Day, Time)
+
+log = kcwiLog()
+log.setFile(LOG_FNAME)
+
+# Parsing arguments
+description = "Parses a calibration flat file and take calibration images"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('-f','--file',dest='filen',nargs="?",default=None, help='File to load cal script from')
+parser.add_argument('-n','--night',dest='night',default=False, help='Is this a night-time calibration (auto-parks) ?', action='store_true')
+parser.add_argument('-nodome',dest='nodome',default=False, help='Skip dome calibrations', action='store_true')
+parser.add_argument('-domeonly',dest='domeonly',default=False, help='Take only dome calibrations', action='store_true')
+parser.add_argument('-p','--park',dest='park',default=False, help='Park calibration unit at the end', action='store_true')
+parser.add_argument('-d','--dry-run',dest='dry',default=False, help='List steps but do not execute calibrations', action='store_true')
+
+def isBiasAlreadyAvailable():
+    # parse existing files to gather information about bias frames already taken
+    kbds = ktl.cache('kbds')
+    outdir = str(kbds['outdir'].read())
+    searchPattern = 'kb*.fits'
+    outdir = '.'
+    frames = glob.glob(outdir+'/'+searchPattern)
+    ccdids = []
+    for frame in frames:
+        hdu = fits.open(frame)
+        imtype = hdu[0].header['IMTYPE'].strip()
+	object = hdu[0].header['OBJECT'].strip()
+        if "BIAS" in imtype and "BIAS/Dark" in object:
+            try:
+                ccdid = hdu[0].header['CCDCFG'].strip()
+                ccdids.append(ccdid)
+            except:
+                print("WARNING: The CCDCFG keyword cannot be found.")
+                print("This is not a fatal error, but it will cause additional biases to be taken.")
+                print("The fix is to restart the detector server. Please contact a support astronomer.")
+                hdu.close()
+                return False
+        hdu.close()
+    ccdids = set(ccdids)
+    print("List of available ccdids: %s\n" % (str(ccdids)))
+    log.info("List of available ccdids: %s\n" % (str(ccdids)))
+    binning = str(kbds['BINNING'].read()).replace(',','')
+    speed = int(kbds['CCDSPEED'].read())
+    gainmul = str(kbds['gainmul'].read()).zfill(2)
+    ampmode = str(kbds['ampmode'].read()).zfill(2)
+    ccdcfg = '%s%d%s%s' % (binning, speed, gainmul, ampmode)
+    print("Current ccdid: %s\n" % (ccdcfg))
+    log.info("Current ccdid: %s\n" % (ccdcfg))
+    if ccdcfg in ccdids:
+        return True
+    else:
+        return False
+
+
+def domeLampOn():
+    flspectr = ktl.cache('dcs','flspectr')
+    flspectr.write(1)
+
+def domeLampOff():
+    flspectr = ktl.cache('dcs','flspectr')
+    flspectr.write(0)
+
+def setImtype(calibration):
+    type=None
+    if calibration['lamp']=='FEAR' or calibration['lamp']=='THAR':
+        type='ARCLAMP'
+    if calibration['lamp']=='DOME':
+        type='DOMEFLAT'
+    if calibration['lamp']=='CONT':
+        if calibration['object'] in ['MedBarsA','MedBarsB','FinBars','LrgBarsA','LrgBarsB']:
+            type='CONTBARS'
+        if calibration['object'] in ['FlatA','FlatB']:
+            type='FLATLAMP'
+    if calibration['lamp']=='BIAS':
+        type='BIAS'
+    if calibration['lamp']=='DARK':
+        type='DARK'
+    if type is not None:
+        imtype=ktl.cache('kbds','imtype')
+        imtype.write(type)
+    else:
+        say("WARNING: Unknown image type while executing the following calibration")
+        log.warning("WARNING: Unknown image type while executing a calibration")
+        printInfo(calibration)
+        
+
+
+
+    
+
+def sig_handler(signum, frame, dry):
+
+    say("Stop (CTRL+C) detected.")
+
+    # turns lamps off
+    execute(dry, Calibration.lamp,'all','off')    
+
+    # CLOSE shutters
+    execute(dry, Calibration.lamp_shutter,'thar','close')
+    execute(dry, Calibration.lamp_shutter,'fear','close')
+
+    # abort exposure
+    exposeip = ktl.cache('kbds','exposip')
+    if exposeip.read() == 1:
+        say("Aborting current exposure")
+        abortex = ktl.cache('kbs','abortex')
+        execute(dry, abortex.write, 1)
+        
+    # abort movements
+    status = ktl.cache('kcas','status')
+    status.monitor()
+
+    if status.read() == 'Moving':
+        abort = ktl.cache('kcas','abort')
+        execute(dry, abort.write, 1)
+
+    ok = ktl.Expression('kcas.status == OK')
+    result = ok.wait(timeout = 30)
+    execute(dry, Calibration.cal_mirror, 'Sky')
+
+    sys.exit(0)
+
+def isDomeOk():
+    instrument = ktl.cache('dcs','currinst')
+    focalStation = ktl.cache('dcs','focalstr')
+    if instrument.read()=='KCWI' and focalStation.read()=='RNAS':
+        return True
+    else:
+        say("Either the instrument is not KCWI or we are not at the RNAS focal station")
+        say("Skipping dome flats")
+        return False
+
+
+
+def printInfo(calibration):
+    say("**************************************************************************************************")
+    say("Lamp: %s, Object: %s, Exptime: %s, Afternoon exposures: %s, Night exposures: %s, Geometry: %s" % \
+        (calibration['lamp'],calibration['object'],calibration['exptime'],calibration['afternoon'],calibration['night'],calibration['geometry']))
+    say("**************************************************************************************************")
+    log.info("Lamp: %s, Object: %s, Exptime: %s, Afternoon exposures: %s, Night exposures: %s, Geometry: %s" % \
+        (calibration['lamp'],calibration['object'],calibration['exptime'],calibration['afternoon'],calibration['night'],calibration['geometry']))
+def setObject(calibration):
+    if calibration['geometry']=='1':
+        geometryFlag = "/Geom"
+    else:
+        geometryFlag = ""
+    if calibration['lamp']=='DARK':
+        lampFlag = "None"
+    else:
+        lampFlag = calibration['lamp']
+
+    currentObject = "%s/%s/%s sec.%s" % (lampFlag,calibration['object'],calibration['exptime'],geometryFlag)
+    say("Setting object to: %s" % (currentObject))
+    log.info("Setting object to: %s" % (currentObject))
+    object = ktl.cache('kbds','object')
+    object.write(currentObject)
+
+
+# this is a wrapper that disables the functions if in dry-run mode
+
+def execute(dry, func, *args, **kwargs):
+
+    if not dry:
+        log.info("Running %s with arguments %s" % (func.__name__, str(args)))
+        func(*args, **kwargs)
+    else:
+        string_args = []
+        for arg in args:
+            string_args.append(str(arg))
+
+        print("DRY RUN: %s(%s)" % (func.__name__, 
+                                       ','.join(list(string_args) + ["%s=%s" % (str(k), str(v)) for (k, v) in kwargs.iteritems()])))
+
+
+def CheckObjectName(object):
+    object = object.lower()
+    if object in ['dark','0','pin300','1','medbarsa','medbars','2','medbarsb','3','finbars','4', \
+                  'diaglin','5','flata','flat','6','flatb','7','lrgbarsa','lrgbars','8','lrgbarsb', \
+                  'lrgbars','9','pin500','10','tpat','11','horlin','12','mira','13']:
+       return
+    else:
+       say("Error: Unkown object %s" % (object))
+       log.warning("Error: Unkown object %s" % (object))
+       sys.exit(1)
+
+def convertGeometryFlag(flag):
+    flag = flag.lower()
+    if flag in ['yes','y','1']:
+                   convflag = 1
+    elif flag in ['no','n','0']:
+                   convflag = 0
+    return convflag
+
+def checkHealth():
+    progname = ktl.cache('kcwi','progname')
+    statenam = ktl.cache('kcwi','statenam')
+
+
+def kcas_calib(filen,night,park, dry, skipdome, domeonly):
+
+    caltype="day"
+    park=0
+
+    dark = False
+
+    if night:
+        caltype='night'
+        park = 1
+
+    thar_used=0
+    fear_used=0
+    dome_used=0
+
+    expectedNumberOfColumns = 6
+
+    # record current detector status
+
+    detAmpmodeInit = Blue.ampmodeb()
+    detGainMulInit = Blue.gainmulb()
+    detCcdModeInit = Blue.ccdmodeb()
+    detExptimeInit = Blue.tintb()
+
+
+    detSleep = 2
+
+    # create an empty array of calibrations to be executed
+    # this will be an array of dictionaries
+
+    Calibrations = []
+    
+    # check if the file exists, and read it
+
+    try:
+        say("Opening file %s" % (filen))
+        log.info("Opening file %s" % (filen))
+        calFile = open(filen,"r")
+        lines = calFile.readlines()
+        calFile.close()
+    except:
+        raise RuntimeError("The input flat file does not exist")
+
+    # process the lines
+
+    for line in lines:
+
+        # skip comments
+
+        if '#' in line:
+            continue
+
+        # if the line contains an = sign, then it indicates the original state file
+
+        if '=' in line:
+            statusFile = line.split('=')[1]
+            continue
+        
+        # for all other cases, ingest the information
+
+        data = line.split()
+        if len(data) != expectedNumberOfColumns:
+            say("Skipping line: %s" % line)
+            log.info("Skipping line: %s" % line)
+            continue
+        else:
+            calibration = {}
+            calibration["lamp"]=data[0]
+            calibration["object"]=data[1]
+            calibration["exptime"]=data[2]
+            calibration["afternoon"]=data[3]
+            calibration["night"]=data[4]
+            calibration["geometry"]=data[5]
+            
+            # add the current calibration line to the array
+            Calibrations.append(calibration)
+
+    # make sure the calibration axes are homed
+
+    kcas = ktl.cache('kcas')
+    calxhomed = kcas['calxhomed']
+    calyhomed = kcas['calyhomed']
+    calmhomed = kcas['calmhomed']
+
+    for axis in [calxhomed,calyhomed,calmhomed]:
+        if int(axis['ascii'])==0:
+            say("Calibration axis %s is not homed" % axis.name)
+            log.warning("Calibration axis %s is not homed" % axis.name)
+            exit(1)
+    
+    # conversions and checks
+
+    for calibration in Calibrations:
+        # lamp
+        #calibration["lampid"] = convertLampNametoID(calibration["lamp"])
+        # object
+        CheckObjectName(calibration["object"])
+        # geometry
+        calibration["geometry"] = convertGeometryFlag(calibration["geometry"])
+
+    # check which lamps are used (continumm is always used)
+
+    thar_used = 0 
+    fear_used = 0
+    dome_used = 0
+    
+    for calibration in Calibrations:
+        if (caltype == 'day' and int(calibration['afternoon']) > 0) or (caltype == 'night' and int(calibration['night']) > 0):
+            if calibration['lamp'] == 'THAR':
+                thar_used = 1
+            if calibration['lamp'] == 'FEAR':
+                fear_used = 1
+    
+        if (caltype == 'day' and int(calibration['afternoon']) > 0):
+
+            if calibration['lamp'] == 'DOME':
+                dome_used = 1
+
+    say("Caltype   = %s" % (caltype))
+    say("Thar used = %s" % (str(thar_used)))
+    say("Fear used = %s" % (str(fear_used)))
+    say("Dome used = %s" % (str(dome_used)))
+    log.info("Caltype   = %s" % (caltype))
+    log.info("Thar used = %s" % (str(thar_used)))
+    log.info("Fear used = %s" % (str(fear_used)))
+    log.info("Dome used = %s" % (str(dome_used)))
+
+    if domeonly is False:
+        if (thar_used):
+            execute(dry,Calibration.lamp_shutter,'thar','close')
+            execute(dry,Calibration.lamp,'thar','on')
+
+
+        if (fear_used):
+            execute(dry,Calibration.lamp_shutter,'fear','close')
+            execute(dry,Calibration.lamp,'fear','on')
+
+
+        # Close the hatch
+    
+        execute(dry,Calibration.hatch,'close')
+    
+    # Loop through the calibrations (INTERNAL ONLY)
+
+    for calibration in Calibrations:
+        restoreAfterSequence=False
+        
+        # skip the dome calibration 
+        if calibration['lamp'] == 'DOME' or domeonly==True:
+            continue
+
+        # record the current values of stateid and statenam
+        stateidKeyword = ktl.cache('kcwi','stateid')
+        original_stateid = stateidKeyword.read()
+        statenamKeyword = ktl.cache('kcwi','statenam')
+        original_statenam = statenamKeyword.read()
+
+        #
+        time.sleep(1)
+
+        # print info
+        printInfo(calibration)
+
+        if caltype == 'day':
+            count = calibration['afternoon']
+        elif calitype == 'night':
+            count = calibration['night']
+
+        say("Count:   %s" % (count))
+        log.info("Count:   %s" % (count))
+
+        say("Geomtry: %s" % (calibration['geometry']))
+        log.info("Geomtry: %s" % (calibration['geometry']))
+
+        autoshut = ktl.cache('kbds','autoshut')
+        if int(count) > 0:
+            setImtype(calibration)
+            if calibration['lamp'] == 'FEAR':
+                execute(dry, Calibration.lamp_shutter,'fear','open')
+                execute(dry, Calibration.lamp_shutter,'thar','close')
+                say("wait...")
+                time.sleep(3)
+                execute(dry, Calibration.lamp,'cont','off')
+                dark = False
+
+            if calibration['lamp'] == 'THAR':
+                execute(dry, Calibration.lamp_shutter,'fear','close')
+                execute(dry, Calibration.lamp_shutter,'thar','open')
+                say("wait...")
+                time.sleep(3)
+                execute(dry, Calibration.lamp,'cont','off')
+                dark = False
+
+            if calibration['lamp'] == 'CONT':
+                execute(dry, Calibration.lamp_shutter,'fear','close')
+                execute(dry, Calibration.lamp_shutter,'thar','close')
+                say("wait...")
+                time.sleep(3)
+                execute(dry, Calibration.lamp,'cont','on')
+                dark = False
+
+            if calibration['lamp'] == 'DARK' or calibration['lamp'] == 'BIAS':
+                execute(dry, Calibration.lamp_shutter,'fear','close')
+                execute(dry, Calibration.lamp_shutter,'thar','close')
+                say("wait...")
+                execute(dry, Calibration.lamp,'cont','off')
+                dark = True
+
+            if calibration['lamp'] == 'BIAS':
+                print("Check for existing BIAS frames for this configuration")
+                log.info("Check for existing BIAS frames for this configuration")
+                status = isBiasAlreadyAvailable()
+                print ("Is there a bias for this configuration -> ", str(status))
+                log.info("Is there a bias for this configuration -> ", str(status))
+                if status is True:
+                    print("Bias frames already exist for this configuration, skipping bias brames..")
+                    log.info("Bias frames already exist for this configuration, skipping bias brames..")
+                    continue
+                print("Resetting stateid and stateid to bias values")
+                log.info("Resetting stateid and stateid to bias values")
+                stateidKeyword.write("0")
+                statenamKeyword.write("Shared Bias")
+                restoreAfterSequence=True
+
+            # set object
+            setObject(calibration)
+
+            # move mirror axis
+
+            execute(dry, Calibration.cal_mirror,position="Mirror")
+
+            # move calx and caly objects
+
+            execute(dry, Calibration.cal_object,position=calibration['object'])
+
+            # set exposure time
+
+            execute(dry, Blue.tintb,str(calibration['exptime']))
+
+            # if geometry is set to 1, modify the detector configuration
+
+            if calibration['geometry'] != 0:
+                execute(dry, Blue.ampmodeb,0)
+                execute(dry, Blue.gainmulb,10)
+                execute(dry, Blue.ccdmodeb,1)
+
+            # otherwise restore the initial configuration
+            else:
+                execute(dry, Blue.ampmodeb,detAmpmodeInit)
+                execute(dry, Blue.gainmulb,detGainMulInit)
+                execute(dry, Blue.ccdmodeb,detCcdModeInit)
+
+            # exposure time
+
+            execute(dry, Blue.tintb,calibration['exptime'])
+
+            # take exposures
+
+            say("Exposing. Count = %d, Dark = %s." % (int(count),str(dark)))
+            log.info("-------- Exposing -------- Count = %d, Dark = %s." % (int(count),str(dark)))
+            execute(dry, Blue.goib,count, dark)
+            
+            # If we have a  bias, reset the state keywords.
+            print("Checking if a restore of stateid is needed")
+            log.info("Checking if a restore of stateid is needed")
+            if restoreAfterSequence:
+                print("Restoring original state name")
+                log.info("Restoring original state name")
+                statenamKeyword.write(original_statenam)
+                stateidKeyword.write(original_stateid)
+                restoreAfterSequence = False
+            else:
+                print("Restoring not needed")
+                log.info("Restoring not needed")
+
+    # close arc shutters
+
+    execute(dry, Calibration.lamp_shutter,'thar','close')
+    execute(dry, Calibration.lamp_shutter,'fear','close')
+
+    # turn off continuum
+        
+    execute(dry, Calibration.lamp,'cont','off')
+        
+
+    
+
+
+    # return detector to initial configuration
+
+    execute(dry, Blue.ampmodeb,detAmpmodeInit)
+    execute(dry, Blue.gainmulb,detGainMulInit)
+    execute(dry, Blue.ccdmodeb,detCcdModeInit)            
+    imtype = ktl.cache('kbds','imtype')
+    imtype.write('OBJECT')
+    
+    # Loop through the calibrations (DOME ONLY)
+    dark = False
+
+    if dome_used and skipdome==False and isDomeOk():
+
+        for calibration in Calibrations:
+        
+            # skip the internal calibrations
+            if calibration['lamp'] != 'DOME':
+                continue
+
+            # print info
+            printInfo(calibration)
+
+            if caltype == 'day':
+                count = calibration['afternoon']
+            elif calitype == 'night':
+                count = calibration['night']
+
+            say("Count:   %s" % (count))
+            log.info("Count:   %s" % (count))
+
+            say("Geomtry: %s" % (calibration['geometry']))           
+            log.info("Geomtry: %s" % (calibration['geometry']))           
+
+            # TURN ON DOME LAMPS
+
+            domeLampOn()
+            setImtype(calibration)
+            setObject(calibration)
+            # open hatch
+
+            execute(dry, Calibration.hatch,'open')
+
+            # move cal mirrot out of the way
+
+            execute(dry, Calibration.cal_mirror,position='Sky')
+
+            # move cal x y in place
+
+            execute(dry, Calibration.cal_object,position=calibration['object'])
+
+            # set exposure time
+        
+            execute(dry, Blue.tintb,calibration['exptime'])
+
+            # take exposures
+
+            say("Exposing. Count = %d, Dark = %s." % (int(count),str(dark)))
+            log.info("-------- Exposing -------- Count = %d, Dark = %s." % (int(count),str(dark)))
+            execute(dry, Blue.goib,count, dark)
+
+        
+    # return exposure time to original
+
+    execute(dry, Blue.tintb,detExptimeInit)
+   
+    # close arc shutters, turns off continuum
+
+    execute(dry, Calibration.lamp_shutter,'thar','close')
+    execute(dry, Calibration.lamp_shutter,'fear','close')
+    execute(dry, Calibration.lamp,'cont','off')
+
+    # turn off dome lamps
+    domeLampOff()
+    imtype = ktl.cache('kbds','imtype')
+    imtype.write('OBJECT')
+
+    if park:
+        # turns off lamps
+        execute(dry, Calibration.lamp,'all','off')
+        execute(dry, Calibration.cal_object,'Dark')
+        execute(dry, calibration.cal_mirror,'Sky')
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+
+   filen = args.filen
+   night = args.night
+   park = args.night
+   dry = args.dry
+   skipdome = args.nodome
+   domeonly = args.domeonly
+
+   signal.signal(signal.SIGINT,sig_handler)
+   signal.signal(signal.SIGILL,sig_handler)
+   signal.signal(signal.SIGTERM,sig_handler)
+
+
+   kcas_calib(filen, night, park, dry, skipdome, domeonly)
+
+
+

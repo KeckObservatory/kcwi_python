@@ -1,0 +1,160 @@
+#! /kroot/rel/default/bin/kpython
+
+import getopt
+import sys
+import argparse
+import inspect
+
+try:
+    from KCWI.Blue import *
+except:
+    sys.stdout.write('Error importing KCWI.Blue - Some functions might not be available')
+
+try:
+    from KCWI.Calibration import *
+except:
+    sys.stdout.write('Error importing KCWI.Calibration - Some functions might not be available')
+
+try:
+    from KCWI.Procs import *
+except:
+    sys.stdout.write('Error importing KCWI.Procs - Some functions might not be available')
+
+
+try:
+    from KCWI.Global import *
+except:
+    sys.stdout.write('Error importing KCWI.Procs - Some functions might not be available')
+
+from KCWI.Helper import say
+from KCWI.Logging import kcwiLog
+# setup logging:
+# Current Day
+Day = time.strftime("%m-%d-%Y", time.localtime())
+# Current Time
+Time = time.strftime("%I:%M:%S %p", time.localtime())
+LOG_FNAME = 'restore_state_%s_%s.log' % (Day, Time)
+log = kcwiLog()
+log.setFile(LOG_FNAME)
+
+
+
+class FunctionError(Exception):
+    def __init__(self,value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+
+
+# the state file has the format:
+# keyword = value
+# where keyword MUST be a function defined in KCWI.Blue
+
+description = "Restores the instrument configuration contained in a file"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('-nomove',required=False,default=False,action='store_true', help='only modify target keywords, but do not move the stage')
+parser.add_argument('-verify',required=False,default=False,action='store_true', help='quits immediately with an error code if one of the moves fails')
+parser.add_argument('-quiet',required=False,default=False,action='store_true', help='set to disable progress bar')
+parser.add_argument('-nomask',required=False,default=False,action='store_true',help='do not insert the nod and shuffle mask')
+parser.add_argument('-calib',required=False,default=False,action='store_true',help='calibration mode: do not move the mirror')
+parser.add_argument('state_file',help='state file to be loaded')
+
+
+if __name__ == '__main__':
+
+    args = parser.parse_args()
+    state_file = args.state_file
+    log.info("Reading file "+str(state_file))
+    # read file
+    print("Reading file "+str(state_file))
+    
+    try:
+        stateFile = open(state_file,"r")
+        lines = stateFile.readlines()
+        stateFile.close()
+    except:
+        raise RuntimeError("The input state file cannot be read.")
+
+    if args.nomove==True:
+        move=False
+    else:
+        move=True
+
+    if args.quiet==True:
+        quiet=True
+    else:
+        quiet=False
+
+    if args.nomask==True:
+        skip_nsmask=True
+    else:
+        skip_nsmask=False
+
+    if args.calib==True:
+        skip_mirror=True
+    else:
+        skip_mirror=False
+
+        
+
+
+    # process the lines
+    defined_objects = globals().copy()
+    say("-----------------------------------")
+    for line in lines:
+        line = line.replace('\n','')
+        print("Parsing line %s" % (line))
+        log.info("Parsing line %s" % (line))
+        if '=' in line:
+            keyword,value = line.split('=')
+            keyword=keyword.strip()
+            value=value.strip()
+
+            # skip nod and shuffle mask if required
+            if keyword in ['nsmaskb','nsmaskr'] and skip_nsmask==True:
+                say("Skipping nod and shuffle mask request")
+                log.info("Skipping nod and shuffle mask request")
+                continue
+            # skip mirror if calibration mode
+            if keyword in ['cal_mirror'] and skip_mirror==True:
+                say("Skipping calibratin mirror request")
+                log.info("Skipping calibratin mirror request")
+                continue
+
+            try:
+            # load the function
+                function = defined_objects[keyword]
+                # which module does it depend on (this is for verbose output)
+                module = inspect.getmodule(function)
+                say("Function: %s Module: %s" % (function.__name__, module.__name__))
+                log.info("Function: %s Module: %s" % (function.__name__, module.__name__))
+            except:
+                say ("Function %s is not defined" % (keyword))
+                log.info("Function %s is not defined" % (keyword))
+                continue
+            try:
+                arguments = inspect.getargspec(function)
+            except: 
+                say ("Cannot retrieve argument list for function %s" % (keyword))
+                log.info("Cannot retrieve argument list for function %s" % (keyword))
+                continue
+
+            # here we assume that functions only accept one keyword values
+            kwdargs = {arguments.args[0]:value}
+            # special handling of the move keyword is present
+            if 'move' in arguments.args:
+                kwdargs['move']=move
+            if 'quiet' in arguments.args:
+                kwdargs['quiet']=quiet
+            try:    
+                #say("calling function\n")
+                function(**kwdargs)
+            except Exception as err:
+                say("Cannot set %s to %s" % (keyword,value))
+                say("The error is: %s" % format(err))
+                log.warn("Cannot set %s to %s" % (keyword,value))
+                log.warn("The error is: %s" % format(err))
+                if args.verify == True:
+                    say("Verify failed. Stopping.")
+                    sys.exit(1)

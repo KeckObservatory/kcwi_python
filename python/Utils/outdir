@@ -1,0 +1,24 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the outdir"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('outdir',nargs="?",default=None,help='output directory')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+   if args.outdir == None:
+      sys.stdout.write(str(Procs.outdir())+"\n")
+   else:
+     Procs.outdir(outdir = args.outdir)
+
+
+
+
+

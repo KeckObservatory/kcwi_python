@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse,sys
+
+# parsing arguments
+description = "Returns the root name for images"
+parser = argparse.ArgumentParser(description=description)
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+
+   sys.stdout.write(str(Procs.frameroot(channel='fpc'))+"\n")
+
+
+

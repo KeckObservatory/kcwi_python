@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse, sys
+
+# Parsing arguments
+description = "Show or modify the blue camera binning mode"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('binning',nargs="?",default=None, help='Binning string ("1,1" or "2,2")')
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   binning = Blue.binningb(binning=args.binning)
+   sys.stdout.write("Blue camera binning mode is: %s\n" % (binning))
+
+
+

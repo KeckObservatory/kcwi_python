@@ -1,0 +1,25 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Global
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the unique state file id"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('id',nargs="?",default=None,help='Unique database id')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+   if args.id == None:
+      id = Global.stateid()
+      sys.stdout.write(str(id)+"\n")
+   else:
+     Global.stateid(id = args.id)
+
+
+
+
+

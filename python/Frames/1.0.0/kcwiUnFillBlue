@@ -1,0 +1,158 @@
+#! /kroot/rel/default/bin/kpython
+
+import sys
+import os
+import argparse
+import time
+import ktl
+import subprocess
+
+from KCWI.Helper import say,isServerUp
+
+description = "Move the articulation stage away from the fill position"
+parser = argparse.ArgumentParser(description=description)
+
+def kcwiUnFillBlue():
+    say("#####################################################################################")
+    say("WARNING! This script will move the articulation stage away from the fill position")
+    say("         If a fill is in progress, this will damage the instrument")
+    say("         You will have a chance to specify how long to wait before running the script")
+    say("#####################################################################################")
+    question= "Are you sure you want to continue (y/n) ?"
+    reply = ""
+    while reply not in ['y','n']:
+          reply = str(raw_input(question)).lower().strip()
+          if reply=='n':
+          	say("Ok. Exiting...")
+                sys.exit(0)
+
+    if isServerUp('kt2s'):
+        filltemp = ktl.cache('kt2s','tmp8')
+        say("Current fill temperature (C): %.1f" % (float(filltemp.read())-273.15))
+    else:
+        say("Error contacting the kt2s server")
+        say("The temperature inside the lower enclosure cannot be monitored")
+    file = os.path.join(os.environ['HOME'],'.kcwibluefill')
+    if os.path.isfile(file):
+        dtime = float(time.time() - os.path.getmtime(file))
+        say("Fill was initiated %d minutes ago" % int(dtime/60.))
+    else:
+        say("WARNING - Unable to determine when fill was initiated")
+
+    question="One last check.... are you sure there is no fill in progress (y/n) ?"
+    reply = ""
+    while reply not in ['y','n']:
+          reply = str(raw_input(question)).lower().strip()
+          if reply=='n':
+          	say("Ok. Exiting...")
+                sys.exit(0)
+
+
+
+    question="How many MINUTES would you like to wait before continuing with the move (default is 60) ?"
+    reply=None
+    while isinstance(reply,int) is False:
+        reply = raw_input(question)
+        try:
+            reply = int(reply)
+        except:
+            reply=""
+
+        if reply == "":
+            reply = 60
+
+    # Turn on vac ion pump and enable alarms
+    try:
+        hvon = ktl.cache('kbvs','hvon')
+        hvon.monitor()
+        if hvon['ascii'] == '0':
+            say("Restarting ion pump")
+            pumpstart = ktl.cache('kbvs','pumpstart')
+            pumpstart.write("1")
+    	#kroot = os.environ['KROOT']
+        #cmd = os.path.join(kroot,'rel','default','bin','vacion_on')
+        #p = subprocess.Popen([cmd,'enable'])
+        #say("ION pump has been enabled and the alarm is on")
+
+    except Exception,e:
+        say("Error starting the vac ion pump")
+
+
+        
+    say("You have decided to run this script in %d minutes from now." % (reply))
+    say("You can CTRL+C at any time to stop before the script runs.")
+    say("Counting down...")
+    for min in range(reply):
+        say("Time remaining ... %d" % (reply-min))
+        time.sleep(60)
+
+
+
+    # 1. Check that the blue mechanism server is running and bsmgalil power is on
+
+    # contact the server
+    try:
+	artfill = ktl.cache('kbms','ARTFILL')
+    except Exception as err:
+    	say("Error contacting the kbms server")
+    	say("The error is:")
+    	say(str(err))
+    	sys.exit(1)
+
+    # is the galil pingable?
+    try:
+	output = subprocess.check_output("ping -c 1 bmsgalil", shell=True)
+    except Exception,e:
+    	say("Error contacting the bmsgalil")
+    	say("The error is:")
+    	say(str(e))
+    	sys.exit(1)
+
+    # 2. check that the articulation stage is in the filling position
+
+    artfilling = ktl.cache('kbms','artfilling')
+    artlocked = ktl.cache('kbms','artlocked')
+
+    if int(artfilling.read())==0 or int(artlocked.read())==0:
+       say("The articulation stage might not be in the correct position")
+       say("The FILLING keyword is %s" % str(artfilling.read()))
+       say("The LOCKED  keyword is %s" % str(artlocked.read()))
+       say("They are both supposed to be '1'")
+       question = "Do you want to continue to move to the UnFill position (y/n)?"
+       reply = ""
+       while reply not in ['y','n']:
+             reply = str(raw_input(question)).lower().strip()
+             if reply=='n':
+             	say("Ok. Exiting...")
+                sys.exit(0)
+    
+    
+    # 3. command the stage to the fill position
+
+    say("Initiating the move to the UnFill position...")
+    artfill.write(0)
+
+    # 4. wait for the status of kbms to be ok
+
+    say("Waiting for move to complete")
+    status = ktl.cache('kbms','status')
+    status.monitor()
+    status.waitFor('=="OK"',timeout = 120)
+
+    artstatus = ktl.cache('kbms','artstatus')
+    artstatus.monitor()
+    artstatus.waitFor('=="OK"',timeout = 120)
+
+
+    say("The articulation stage is no longer in the filling position.")
+    say("The procedure is complete.")
+
+
+if __name__=='__main__':
+   args = parser.parse_args()
+   kcwiUnFillBlue()
+
+
+
+
+

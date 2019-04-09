@@ -1,0 +1,18 @@
+#! /kroot/rel/default/bin/kpython
+
+import argparse
+from KCWI import Procs
+
+description = "Move the object by the specified number of slices"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('direction',help='left or right', type=str, nargs='?',choices=['left','right'])
+parser.add_argument('number',help='Number of slices (fractions allowed)', type=float,  nargs='?')
+parser.add_argument('-n',help='Do not move, only display required offset',required=False,action='store_true',default=False)
+
+        
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   Procs.moveSlicer(direction=args.direction,number=args.number,nomove=args.n)
+

@@ -1,0 +1,17 @@
+#! /kroot/rel/default/bin/kpython
+
+import argparse
+from KCWI import Blue
+
+description = "Take blue channel exposure(s)"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('nexp',help='number of exposures', type=int, default=1, nargs='?')
+parser.add_argument('-dark',help='disable shutter to take a dark',required=False,action='store_true',default=False)
+
+        
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   Blue.goib(nexp=args.nexp, dark=args.dark)
+    

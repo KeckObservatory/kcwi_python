@@ -1,0 +1,21 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import PowerInit
+import argparse
+import sys
+
+# Parsing arguments
+description = "Force the rotator to accept tracking/demand information"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+   
+   PowerInit.setRotatorTracking()
+
+
+
+
+
+

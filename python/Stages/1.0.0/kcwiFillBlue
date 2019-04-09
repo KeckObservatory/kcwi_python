@@ -1,0 +1,111 @@
+#! /kroot/rel/default/bin/kpython
+
+import sys
+import os
+import argparse
+import time
+import ktl
+import subprocess
+
+from KCWI.Helper import say,ProgressBar, AnimatedProgressBar, ProgressCallback
+
+
+description = "Move the articulation stage to the fill position"
+parser = argparse.ArgumentParser(description=description)
+
+def kcwiFillBlue():
+
+    # 1. Check that the blue mechanism server is running and bsmgalil power is on
+
+    # contact the server
+    try:
+        artfill = ktl.cache('kbms','ARTFILL')
+    except Exception as err:
+        say("Error contacting the kbms server")
+        say("The error is:")
+        say(str(err))
+        sys.exit(1)
+
+    # is the galil pingable?
+    try:
+        output = subprocess.check_output("ping -c 1 bmsgalil", shell=True)
+    except Exception,e:
+        say("Error contacting the bmsgalil")
+        say("The error is:")
+        say(str(e))
+        sys.exit(1)
+
+    # 2. command the stage to the fill position
+
+    #kroot = os.environ['KROOT']
+    #cmd = os.path.join(kroot,'rel','default','bin','vacion_on')
+    #p = subprocess.Popen([cmd, 'disable'])
+    #say("ION pump has been disabled and the alarm is off")
+    #sys.exit(1)
+    #except Exception,e:
+    #    say("Error stopping the vac ion pump")
+
+    say("Initiating the move to the fill position...")
+    artfill.write(1)
+
+    # 2.5 Initiate a progress bar on the articulation stage progress
+    p = AnimatedProgressBar(end=100, width=80)
+    ktl.waitFor('($kbms.artprog!=100)',timeout=120)
+    ktl.monitor('kbms','artprog',ProgressCallback,p)
+
+    # 3. wait for the status of kbms to be ok
+
+    #say("Checking if move is complete")
+    status = ktl.cache('kbms','status')
+    status.monitor()
+    status.waitFor('=="OK"',timeout = 120)
+
+    artstatus = ktl.cache('kbms','artstatus')
+    artstatus.monitor()
+    artstatus.waitFor('=="OK"',timeout = 120)
+
+    # 4. check artfilling and artlocked keywords
+
+    time.sleep(5)
+
+    artfilling = ktl.cache('kbms','artfilling')
+    artlocked = ktl.cache('kbms','artlocked')
+    artflsw = ktl.cache('kbms','artflsw')
+
+    if int(artfilling.read())==0:
+        say("The FILLING keyword is not True: The articulation stage might not be in the correct position")
+        say("DO NOT START THE FILLING")
+        sys.exit(1)
+    if (artlocked.read())==0:
+        say("The ARTLOCKED keyword is not True: The articulation stage might not be in the correct position")
+        say("DO NOT START THE FILLING")
+        sys.exit(1)
+    if (artflsw.read())==0:
+        say("The ARTFLSW (articulation forward limit switch) is not triggered: The articulation might not be in the correct position")
+	say("DO NOT START THE FILLING")
+	sys.exit(1)
+
+    # 2.2 turn off the vac ion pump
+
+    try:
+        hvon = ktl.cache('kbvs','hvon')
+        hvon.monitor()
+        if hvon['ascii'] == "1":
+            pumpstop = ktl.cache('kbvs','pumpstop')
+            pumpstop.write("1")
+    except:
+	say("Cannot stop the ion pump. Please stop it manually")
+	say("modify -s kbvs pumpstop=1")
+
+
+    os.system('touch '+os.path.join(os.environ['HOME'],'.kcwibluefill'))
+    say("The articulation stage is in the filling position. You can initiate the LN2 fill.")
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    kcwiFillBlue()
+
+
+
+
+

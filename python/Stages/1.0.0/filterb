@@ -1,0 +1,29 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the blue filter"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('filter',nargs="?",default=None, help='Filter to be selected')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   print "Filter: "+str(args.filter)
+   print "NoMove: "+str(args.nomove)
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   filter = Blue.filterb(target=args.filter,move=move)
+   say("Blue Filter: %s" % (filter))
+

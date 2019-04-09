@@ -1,0 +1,29 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+from KCWI.Helper import say
+import argparse
+import sys
+
+# Parsing arguments
+description = "Show or modify the blue grating"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('grating',nargs="?",default=None, help='Grating to be selected')
+parser.add_argument('-nomove',required=False, default=False,action='store_true', help='If set, do not execute the move, only set targets')
+
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   print "Grating: "+str(args.grating)
+   print "NoMove: "+str(args.nomove)
+
+   if args.nomove == True:
+      move = False
+   else:
+      move = True
+
+   grating = Blue.gratingb(target=args.grating,move=move)
+   say("Blue Grating: %s" % (grating))
+

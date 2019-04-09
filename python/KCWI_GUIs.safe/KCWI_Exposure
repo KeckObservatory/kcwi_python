@@ -1,0 +1,413 @@
+#! /kroot/rel/default/bin/kpython3
+
+import sys,os
+import subprocess
+from PyQt5.QtWidgets import QFrame, QLabel,QHBoxLayout,QLineEdit,QPushButton,QVBoxLayout,QApplication,QCheckBox, QTextEdit, QWidget, QProgressBar, QGridLayout
+from PyQt5.QtCore import QThread, pyqtSignal, QProcess
+from PyQt5 import QtGui
+try:
+    import ktl
+    useKTL = True
+except:
+    print("KTL functions are not available")
+    useKTL = False
+from KCWI_Exposure_Design import Exposure_GUI
+
+def main():
+    app = QApplication(sys.argv)
+    w = MyWindow()
+    w.show()
+    sys.exit(app.exec_())
+
+
+class keywordMonitor(QThread):
+    elaptime = pyqtSignal('QString')
+    pixpercent = pyqtSignal(float)
+    expprog = pyqtSignal(float)
+    progname = pyqtSignal('QString')
+    statenam = pyqtSignal('QString')
+    imtype = pyqtSignal('QString')
+    frameno = pyqtSignal(int)
+    binning = pyqtSignal('QString')
+    ampmode = pyqtSignal(int)
+    ccdmode = pyqtSignal(int)
+    filter = pyqtSignal('QString')
+    grating = pyqtSignal('QString')
+    slicer = pyqtSignal('QString')
+
+    def __init__(self):
+        QThread.__init__(self)
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        if useKTL is False:
+            return
+        def elaptime_callback(keyword):
+            value = "%.1f" % keyword['binary']
+            self.elaptime.emit(str(value))
+
+        def pixpercent_callback(keyword):
+            value = "%.1f" % keyword['binary']
+            self.pixpercent.emit(float(value))
+
+        def expprog_callback(keyword):
+            value = "%.1f" % keyword['binary']
+            self.expprog.emit(float(value))
+
+        def progname_callback(keyword):
+            value = keyword['binary']
+            self.progname.emit(str(value))
+            
+        def statenam_callback(keyword):
+            value = keyword['binary']
+            self.statenam.emit(str(value))
+
+        def imtype_callback(keyword):
+            value = keyword['binary']
+            self.imtype.emit(str(value))
+
+        def frameno_callback(keyword):
+            value = keyword['binary']
+            self.frameno.emit(int(value))
+
+        def binning_callback(keyword):
+            value = keyword['binary']
+            self.binning.emit(str(value))
+
+        def ampmode_callback(keyword):
+            value = keyword['binary']
+            self.ampmode.emit(int(value))
+
+        def ccdmode_callback(keyword):
+            value = keyword['binary']
+            self.ccdmode.emit(int(value))
+
+        def slicer_callback(keyword):
+            value = keyword['binary']
+            self.slicer.emit(str(value))
+
+        def filter_callback(keyword):
+            value = keyword['binary']
+            self.filter.emit(str(value))
+
+        def grating_callback(keyword):
+            grating = gname['binary']
+            cwave = bcwave['binary']
+            pwave = bpwave['binary']
+            result = '%s at %.1f/%.1f' % (grating, float(cwave), float(pwave))
+            self.grating.emit(str(result))
+
+
+
+        elaptime = ktl.cache('kbds', 'elaptime')
+        elaptime.callback(elaptime_callback)
+        pixpercent = ktl.cache('kbds', 'pixpercent')
+        pixpercent.callback(pixpercent_callback)
+        expprog = ktl.cache('kbds', 'expprog')
+        expprog.callback(expprog_callback)
+        progname = ktl.cache('kcwi','progname')
+        progname.callback(progname_callback)
+        statenam = ktl.cache('kcwi', 'statenam')
+        statenam.callback(statenam_callback)
+        imtype = ktl.cache('kbds', 'imtype')
+        imtype.callback(imtype_callback)
+        frameno = ktl.cache('kbds', 'frameno')
+        frameno.callback(frameno_callback)
+        binning = ktl.cache('kbds', 'binning')
+        binning.callback(binning_callback)
+        ampmode = ktl.cache('kbds', 'ampmode')
+        ampmode.callback(ampmode_callback)
+        ccdmode = ktl.cache('kbds', 'ccdmode')
+        ccdmode.callback(ccdmode_callback)
+        gname = ktl.cache('kbes', 'gname')
+        bcwave = ktl.cache('kcwi', 'bcwave')
+        bpwave = ktl.cache('kcwi', 'bpwave')
+        gname.callback(grating_callback)
+        bcwave.callback(grating_callback)
+        bpwave.callback(grating_callback)
+        slicer = ktl.cache('kcas', 'ifuname')
+        slicer.callback(slicer_callback)
+        filter = ktl.cache('kbes', 'fname')
+        filter.callback(filter_callback)
+
+        
+        monitored_keywords = [elaptime, pixpercent, expprog, progname, statenam,
+                              imtype, frameno, binning, ampmode, ccdmode,
+                              gname, bcwave, bpwave, slicer, filter]
+        for keyword in monitored_keywords:
+            keyword.monitor()
+
+        while True:
+            self.sleep(1)
+
+
+class MyWindow(Exposure_GUI):
+    def __init__(self, *args):
+        super().__init__()
+        self.create_button_connections()
+
+    def create_button_connections(self):# create button connection
+        buttons = [self.science,self.twiflat,self.bias,self.dark,self.fpc]
+        for button in buttons:
+            button.clicked.connect(self.btn_click)
+        self.abort_script.clicked.connect(self.abortScript)
+
+        self.update_exptime.clicked.connect(self.change_exptime)
+        #self.update_nexp.clicked.connect(self.change_nexp)
+
+    ########## UPDATE keywords
+
+    def update_elaptime(self, value):
+        self.lbl_exptime_progress.setText(value)
+
+    def update_pixpercent(self, value):
+        self.readout_bar.setValue(value)
+
+    def update_expprog(self, value):
+        self.exposure_bar.setValue(value)
+
+    def update_progname(self, value):
+        self.lbl_progname_result.setText(value)
+
+    def update_statenam(self, value):
+        self.lbl_statenam_result.setText(value)
+
+    def update_imtype(self, value):
+        self.lbl_imtype_result.setText(value)
+
+    def update_frameno(self, value):
+        self.lbl_frameno_result.setText(str(value))
+
+    def update_binning(self, value):
+        binning = value.split(',')
+        binning_string = '%s x %s' % (binning[0], binning[1])
+        self.lbl_binning_result.setText(binning_string)
+
+    def update_ampmode(self, value):
+        ampmodes = {
+            '0': 'Quad mode',
+            '1': 'single C',
+            '2': 'single E',
+            '3': 'single D',
+            '4': 'single F',
+            '5': 'single B',
+            '6': 'single G',
+            '7': 'single A',
+            '8': 'single H',
+            '9': 'dual (A&B)',
+            '10': 'dual (C&D)'
+        }
+        ampmode = ampmodes[str(value)]
+        self.lbl_ampmode_result.setText(ampmode)
+
+    def update_ccdmode(self, value):
+        if int(value) == 0:
+            speed = 'Slow'
+        elif int(value) == 1:
+            speed = 'Fast'
+        self.lbl_ccdmode_result.setText(speed)
+
+    def update_filter(self, value):
+        self.lbl_filter_result.setText(value)
+
+    def update_slicer(self, value):
+        self.lbl_slicer_result.setText(value)
+
+    def update_grating(self, value):
+        self.lbl_grating_result.setText(value)
+
+
+    def start_elaptime_monitor(self):
+        self.keyword_thread = keywordMonitor()
+        self.keyword_thread.elaptime.connect(self.update_elaptime)
+        self.keyword_thread.pixpercent.connect(self.update_pixpercent)
+        self.keyword_thread.expprog.connect(self.update_expprog)
+        self.keyword_thread.progname.connect(self.update_progname)
+        self.keyword_thread.statenam.connect(self.update_statenam)
+        self.keyword_thread.imtype.connect(self.update_imtype)
+        self.keyword_thread.frameno.connect(self.update_frameno)
+        self.keyword_thread.binning.connect(self.update_binning)
+        self.keyword_thread.ampmode.connect(self.update_ampmode)
+        self.keyword_thread.ccdmode.connect(self.update_ccdmode)
+        self.keyword_thread.filter.connect(self.update_filter)
+        self.keyword_thread.grating.connect(self.update_grating)
+        self.keyword_thread.slicer.connect(self.update_slicer)
+        self.keyword_thread.start()
+    
+        
+    def abortScript(self):
+        self.currentScriptProcess.kill()
+
+    def change_exptime(self):
+        exptime = self.exptime.text()
+        try:
+            kroot = os.environ['KROOT']
+        except:
+            kroot = ""
+        if exptime:
+            cmdline = os.path.join(kroot, 'rel', 'default', 'bin', 'tintb %f' % float(exptime))
+            if self.runMode is not 'debug':
+                p = subprocess.Popen(cmdline, stdout = subprocess.PIPE,stderr = subprocess.PIPE, shell=True)
+                output, errors = p.communicate()
+                if len(errors) > 0:
+                    output = output + errors
+                self.output.setText(str(output.decode()))
+            else:
+                self.output.setText(str(cmdline))
+
+    def change_object(self):
+        object = self.object.text()
+        try:
+            kroot = os.environ['KROOT']
+        except:
+            kroot = ""
+        if object:
+            cmdline = os.path.join(kroot, 'rel', 'default', 'bin', 'object %s' % str(object))
+            if self.runMode is not 'debug':
+                p = subprocess.Popen(cmdline, stdout = subprocess.PIPE,stderr = subprocess.PIPE, shell=True)
+                output, errors = p.communicate()
+                if len(errors) > 0:
+                    output = output + errors
+                self.output.setText(str(output.decode()))
+            else:
+                self.output.setText(str(cmdline))
+
+    def change_skypa(self):
+        def is_float(input):
+            try:
+                num = float(input)
+            except ValueError:
+                return False
+            return True
+
+        skypa = self.skypa.text()
+        try:
+            kroot = os.environ['KROOT']
+        except:
+            kroot = ""
+
+        if skypa:
+            if is_float(skypa):
+                cmdline = os.path.join(kroot, 'rel', 'default', 'bin', 'skypa %f' % float(skypa))
+                if self.runMode is not 'debug':
+                    p = subprocess.Popen(cmdline, stdout = subprocess.PIPE,stderr = subprocess.PIPE, shell=True)
+                    output, errors = p.communicate()
+                    if len(errors) > 0:
+                        output = output + errors
+                    self.output.setText(str(output.decode()))
+                else:
+                    self.output.setText(str(cmdline))
+            else:
+                self.skypa.setText("Error")
+
+    def dataReady(self):
+        cursor = self.output.textCursor()
+        cursor.movePosition(cursor.End)
+        self.processOutput = str(self.process.readAll(), 'utf-8')
+        cursor.insertText("%s\n" % self.processOutput)
+        #cursor.insertText(str(self.process.readAll(), 'utf-8'))
+        self.output.ensureCursorVisible()
+        cursor.movePosition(cursor.End)
+        print(self.processOutput)
+
+
+    def showOutput(self, text):
+        cursor = self.output.textCursor()
+        cursor.movePosition(cursor.End)
+        cursor.insertText(text)
+        self.output.ensureCursorVisible()
+
+    def onFinished(self, exitCode, exitStatus):
+        print("Process finished")
+        self.showOutput("Exit code: %d\n" % exitCode)
+        self.showOutput("Exit status: %s\n" % exitStatus)
+
+    def onStart(self):
+        print("Process started")
+
+    def launchError(self, error):
+        if error != QProcess.Crashed:
+            self.showOutput("Warning! There was a problem running the requested function.")
+    
+    def setRunMode(self):
+        if self.test_mode.isChecked():
+            self.runMode = 'debug'
+        else:
+            self.runMode = 'normal'
+
+
+    def run_command(self,command, command_arguments=[], use_kroot=False, csh=False):
+        if use_kroot is True:
+            try:
+                kroot = os.environ['KROOT']
+            except:
+                kroot = ''
+            cmdline = os.path.join(kroot,'rel','default','bin', command)
+        else:
+            cmdline = command
+        print("Running: %s\n" % cmdline)
+        self.process = QProcess(self)
+        self.process.setProcessChannelMode(QProcess.MergedChannels)
+        self.process.readyRead.connect(self.dataReady)
+        self.process.finished.connect(self.onFinished)
+        self.process.error.connect(self.launchError)
+        if command == 'goib' or command == 'goifpc':
+            self.currentScriptProcess = self.process
+
+        if self.runMode is 'debug':
+            self.showOutput('Simulation mode\n Running:\n %s' % (cmdline))
+        else:
+            self.showOutput('Running: %s\n' % (cmdline))
+            if csh is True:
+                self.process.start('csh', [cmdline])
+            else:
+                self.process.start(cmdline, command_arguments)
+            self.showOutput('Done\n')
+        #self.process.waitForFinished()
+
+    # def run_command(self,command):
+    #     try:
+    #         kroot = os.environ['KROOT']
+    #     except:
+    #         kroot = ''
+    #     cmdline = os.path.join(kroot,'rel','default','bin',command)
+    #     if self.runMode is not 'debug':
+    #         p = subprocess.Popen(cmdline, stdout = subprocess.PIPE,stderr = subprocess.PIPE, shell=True)
+    #         output, errors = p.communicate()
+    #         if len(errors) > 0:
+    #             output = output + errors
+    #         self.te.setText(str(output.decode()))
+    #     else:
+    #         self.te.setText(str(cmdline))
+
+    def btn_click(self):
+        exptime = self.exptime.text()
+        nexp = self.nexp.text()
+        sender = self.sender()
+        if sender.text() == 'Science \n exposure':
+            commands = [['imtype',['OBJECT']], ['tintb',[str(exptime)]], ['goib', [str(nexp)]]]
+        elif sender.text() == 'Twilight flat':
+            commands = [['tintb', [str(exptime)]],['imtype',['TWIFLAT']], ['goib', [str(nexp)]]]
+        elif sender.text() == 'Bias':
+            commands = [['tintb', ['0']], ['goib',[str(nexp)]]]
+        elif sender.text() == 'Dark':
+            commands = [['imtype', ['DARK']], ['tintb',[str(exptime)]], ['goib',['-dark',str(nexp)]]]
+        elif sender.text() == 'FPC exposure':
+            commands = [['goifpc',[]]]
+        #elif sender.text() == 'Save Guider Image':
+        #    command = 'saveGuiderImageLocal'
+        else:
+            commands = None
+
+        if commands is not None:
+            for command in commands:
+                program = command[0]
+                arguments = command[1]
+            self.run_command(program, arguments)
+
+
+
+if __name__ == "__main__":
+    main()

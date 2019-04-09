@@ -1,0 +1,110 @@
+#! /kroot/rel/default/bin/kpython
+
+import ktl
+import sys
+import argparse
+import time
+import signal
+
+from KCWI.Helper import setupMonitoring, checkInitialValues, say
+from KCWI.KcwiDS9 import ds9
+
+description = "Automatic display for Science Camera"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument("displayName",nargs="?",default="AutoDisplayB",help='Name of DS9 instance')
+
+def sig_handler(signum,frame):
+    say(str(signum)+" "+str(frame))
+    say("Stop detected. Killing ds9 and stopping ")
+    if process_name is not None:
+        process_name.send_signal(9)
+    sys.exit(0)
+
+
+
+def autodisplayb(displayName):
+
+    # start keyword monitoring
+
+    server = 'kbds'
+    try:
+        frameno = ktl.cache(server,'FRAMENO')
+        loutfile = ktl.cache(server,'LOUTFILE')
+    except:
+        say("KcwiDisplayb cannot start because KBDS keywords cannot be reached")
+        raise RuntimeError("Failed to read detector keywords. KBDS might not be running")
+
+    # Start ds9
+
+    DS9 = ds9(displayName)
+    DS9.zoom = "to fit"
+    global process_name
+    process_name = DS9.process_name
+    initializeZoom = 1 
+
+
+    monitoredKeywords = (loutfile, frameno)
+
+    setupMonitoring(monitoredKeywords, wait=True)
+
+    # infinite loop
+
+    # store initial value of loutfile
+    loutfile_current = str(loutfile['ascii'])
+    say("Initial value for lastfile is %s" % (loutfile_current))
+    sequence = 0
+
+    say("Waiting for first exposure")
+    say("Outfile: [%s]" % (loutfile.read()))
+    # for some odd reason, when no image has been taken 
+    # loutfile is not empty, but it contains 7 empty chars
+    first_exposure = ktl.Expression('$kbds.loutfile != "       "')
+    while True:
+        result = first_exposure.wait(timeout=5)
+	if result == True:
+	   break
+    say("First exposure detected")
+    time.sleep(3)
+
+    loutfile_current = str(loutfile['ascii'])
+
+    # infinite loop
+    while True:
+        if sequence>=1:
+            say("Sequence: %d" % (sequence))
+            say("Waiting for new exposure")
+            # this while True loop is necessary to handle CTRL+C signals
+            # otherwise they get ignored
+            new_exposure = '$kbds.loutfile != "%s"' % (loutfile_current)
+            new_exposure = ktl.Expression(new_exposure)
+            while True:
+                
+
+                #say("loutfile_current = %s " % (loutfile_current))
+                #say("Last file        = %s " % (loutfile.read()))
+                result = new_exposure.wait(timeout=5)
+                if result==True:
+                    loutfile_current = str(loutfile['ascii'])
+                    break
+        # display
+        zoomflag = DS9.zoom
+        say("Displaying image..."+str(loutfile.read()))
+        DS9.open(loutfile.read(), 1)
+        sequence += 1
+
+        # deal with zoom parameters
+        if zoomflag == "to fit" and initializeZoom:
+            DS9.xpaset("zoom to fit")
+            initializeZoom = 0
+            # change the value so that on subsequent displays we
+            # do not override the zoom factor set by the
+            # observer...
+        if not initializeZoom:
+            DS9.zoom = None
+
+if __name__ == '__main__':
+   args = parser.parse_args()
+   signal.signal(signal.SIGINT,sig_handler)
+   signal.signal(signal.SIGILL,sig_handler)
+   signal.signal(signal.SIGTERM,sig_handler)
+   autodisplayb(args.displayName)

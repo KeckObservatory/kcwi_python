@@ -1,0 +1,78 @@
+#! /kroot/rel/default/bin/kpython
+
+import sys
+
+try:
+    from KCWI.Blue import *
+except:
+    sys.stdout.write('Error importing KCWI.Blue - Some functions might not be available')
+
+try:
+    from KCWI.Calibration import *
+except:
+    sys.stdout.write('Error importing KCWI.Calibration - Some functions might not be available')
+
+try:
+    from KCWI.Procs import *
+except:
+    sys.stdout.write('Error importing KCWI.Procs - Some functions might not be available')
+
+try:
+    from KCWI.Global import *
+except:
+    sys.stdout.write('Error importing KCWI.Procs - Some functions might not be available')
+
+from KCWI.Helper import say
+import getopt
+import argparse
+import os
+
+# kcwiServer.StartLog()
+
+description = "Saves the instrument configuration to a file"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('-clobber',required=False,default=False,action='store_true',help='Clobber output file if it already exists')
+parser.add_argument('state_file',help='Name of state file to save')
+
+
+
+if __name__ == '__main__':
+
+    args = parser.parse_args()
+
+    filename = args.state_file
+
+    # if the file exists and clobber is set, remove it
+    if os.path.exists(filename) and args.clobber==True:
+        try:
+            os.remove(filename)
+        except OsError,e:
+            say("Error: %s - %s." % (e.filename,e.strerror))
+
+    if os.path.exists(filename) and args.clobber==False:
+        sys.stdout.write("The state file already exists, and no clobber flag was specified.\n")
+        sys.exit()
+
+    # open the file
+    try:
+        stateFile = open(filename,'w')
+    except:
+        raise RuntimeError("The state file cannot be opened")
+      
+    # each of these keywords is a call to  a function in KCWI Blue.py or Red.py
+    #listOfKeywords = ['filterb','gratingb']
+    #    listOfKeywords = ['filterb','gratingb','grangleb','camangleb','ampmodeb','gainmulb','ccdmodeb', 'binningb', 'cal_mirror', 'nsmaskb','image_slicer', 'polarizer', 'polangle', 'cwaveb','pwaveb','stateid','statenam','progname']
+    # 170417 -- MM -- removed cal_mirror. Do not want this saved, as
+    # it will put the system in calibration mode when restore_state is
+    # called in the middle of the night, using up valuable time to
+    # retract the mirror. 
+    listOfKeywords = ['filterb','gratingb','grangleb','camangleb','ampmodeb','gainmulb','ccdmodeb', 'binningb', 'nsmaskb','image_slicer', 'polarizer', 'polangle', 'cwaveb','pwaveb','stateid','statenam','progname']
+    defined_objects = globals().copy()
+
+    for keyword in listOfKeywords:
+        function = defined_objects[keyword]
+        value = function()
+        say ("%s = %s" % (keyword,value))
+        stateFile.write("%s = %s\n" % (keyword,value))
+
+    stateFile.close()

@@ -1,0 +1,20 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse
+
+# parsing arguments
+description = "Set the next frame number to num or to the last frame plus one"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('num', nargs="?",default=None,help='value to set frameno to')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+
+   Procs.set_nextframe(channel='fpc',number=args.num)
+
+
+

@@ -1,0 +1,106 @@
+#! /kroot/rel/default/bin/kpython
+
+# The purpose of this script is simple: on any change on the observing 
+# wavelength, modify the corresponding magiq and dcs keywords
+
+# Set the debug flag to True to enable copious logging to stderr.
+
+debug = True
+
+import Compat
+import ktl
+import time
+import traceback
+
+dcs = ktl.Service('dcs')
+magiq = ktl.Service('magiq')
+kcwib = ktl.Service('kcwi')
+
+# Condition to assert whether DCS wants rotator feedback from KCWI.
+kcwi_active = '$dcs.INSTRUME == KCWI and $dcs.TERTPOSN == rnas'
+kcwi_active = ktl.Expression(kcwi_active)
+
+guiderWavelength = 0.78 # (in microns, 7800 Angstroms)
+
+def main():
+
+    # Not using the second timestamp ROTDETS2 outside of a sanity-check
+    # routine that wants it to be monitored.
+
+    kcwib['BCWAVE'].monitor()
+    dcs['TARGWAVE'].monitor()
+    dcs['GUIDWAVE'].monitor()
+    magiq['DARONOFF'].monitor()
+
+    kcwib['BCWAVE'].callback(dar_callback)
+
+    while True:
+        try:
+            time.sleep(300)
+        except:
+            break
+
+    # End of normal execution.
+
+
+
+
+def diagnostics (message):
+    ktl.log (ktl.LOG_INFO, message)
+
+    if debug != False:
+        ktl.loglevel (ktl.LOG_INFO)
+
+
+def dar_callback(keyword):
+    if kcwi_active.evaluate(final=True) == False:
+        diagnostics("KCWI is not the current instrument")
+        return
+    global guiderWavelength
+
+    keyword_name = keyword.name
+
+    wavelengthInMicrons = keyword['bin']/10000
+
+    currentTargetWave = dcs['targwave']
+    currentGuideWave = dcs['guidwave']
+    isDarOn = magiq['DARONOFF']
+
+    # TARGWAVE
+    if abs(float(wavelengthInMicrons)-float(currentTargetWave['ascii'])) > 0.1:
+        diagnostics("Changing targwave from %f to %f" % (currentTargetWave,wavelengthInMicrons))
+        try:
+            dcs['targwave'].write(wavelengthInMicrons)
+        except:
+            diagnostics("Errors writing targwave to dcs")
+    else:
+        diagnostics("Targwave is already set correctly")
+    
+    # GUIDWAVE
+    if abs(float(guiderWavelength)-float(currentGuideWave['ascii'])) > 0.1:
+        diagnostics("Setting guiderwave to %f" % guiderWavelength)
+        try:
+            dcs['guidwave'].write(guiderWavelength)
+        except:
+            diagnostics("Errors writing guidewave to dcs")
+    else:
+        diagnostics("Guidwave is already set correctly")
+
+    # DARONOFF
+    if isDarOn['ascii'] == 'false':
+        diagnostics("Turning on DAR correction")
+        try:
+            magiq['daronoff'].write(True)
+        except:
+            diagnostics("Errors turning on DAR correction in magiq")
+    else:
+        diagnostics("DAR is already on")
+
+
+
+
+if __name__ == '__main__':
+    main()
+
+
+# vim: set expandtab tabstop=8 softtabstop=4 shiftwidth=4 autoindent:

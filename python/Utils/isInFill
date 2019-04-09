@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse,sys
+
+# parsing arguments
+description = "Returns True if KCWI is in fill position"
+
+
+if __name__=="__main__":
+
+
+   status = Blue.is_in_filling_position()
+   print(status)
+
+
+
+
+

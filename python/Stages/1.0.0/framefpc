@@ -1,0 +1,24 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse
+
+# parsing arguments
+description = "Set the frame number to num or return the current frameno"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('num', nargs="?",default=None,help='value to set frameno to')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+
+   if args.num==None:
+      frame = Procs.frame(channel='fpc')
+      sys.stdout.write(str(frame)+"\n")
+   else:
+      Procs.frame(channel='fpc',num=args.num)
+
+
+

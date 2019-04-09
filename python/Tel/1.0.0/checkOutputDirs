@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Procs
+import argparse,sys
+
+# parsing arguments
+description = "Shows information about directories and file names"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__=="__main__":
+
+   args = parser.parse_args()
+   Procs.checkOutputDirs()
+
+
+
+
+
+

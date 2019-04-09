@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse, sys
+
+# Parsing arguments
+description = "Show or modify the blue camera gain multiplier"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('gainmul',nargs="?",default=None, help='Gain multiplier (5 or 10)', type=int)
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   gainmul = Blue.gainmulb(args.gainmul)
+   sys.stdout.write("Blue camera gain multiplier is: %s\n" % (gainmul))
+
+
+

@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Blue
+import argparse, sys
+
+# Parsing arguments
+description = "Show or modify the focal plane camera binning mode"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('binning',nargs="?",default=None, help='Binning string ("1", or "2" and so on)')
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   binning = Blue.binningfpc(binning=args.binning)
+   sys.stdout.write("FPC camera binning mode is: %s\n" % (binning))
+
+
+

@@ -1,0 +1,25 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Global
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the unique state file name"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('name',nargs="?",default=None,help='Unique configuration name')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+   if args.name == None:
+      name = Global.statenam()
+      sys.stdout.write(str(name)+"\n")
+   else:
+     Global.statenam(name = args.name)
+
+
+
+
+

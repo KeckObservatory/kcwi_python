@@ -1,0 +1,19 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import PowerInit
+import argparse
+import sys
+
+# Parsing arguments
+description = "Turn on or off the power to the FP camera"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('power',nargs=1,default=None, help='requested action. Value are "on" or "off"', choices=['on','off'])
+
+if __name__ == '__main__':
+
+   args = parser.parse_args()
+
+   PowerInit.FPCamPower(power=args.power[0])
+
+
+

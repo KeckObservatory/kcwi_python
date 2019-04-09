@@ -1,0 +1,123 @@
+#! /kroot/rel/default/bin/kpython
+
+import ktl
+import sys
+import signal
+import argparse
+import time
+import signal
+import os.path
+
+from KCWI.Helper import setupMonitoring, checkInitialValues, say
+from KCWI.KcwiDS9 import ds9
+from astropy.io import fits
+
+description = "Automatic display for magiq Camera"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument("displayName",nargs="?",default="AutoDisplayMAGIQ",help='Name of DS9 instance')
+
+def sig_handler(signum,frame):
+    say(str(signum)+" "+str(frame))
+    say("Stop detected. Killing ds9 and stopping ")
+    if process_name is not None:
+        process_name.send_signal(9)
+    sys.exit(0)
+
+def autodisplaymagiq(displayName):
+
+    # start keyword monitoring
+
+    server = 'kcwi'
+    try:
+        loutfile = ktl.cache(server,'TESTSTR')
+        sequence = ktl.cache(server,'TESTINT')
+    except:
+        raise RuntimeError("Failed to read MAGIQ/KCWI keywords. MAGIQ/KCWI might not be running")
+
+    DS9 = ds9(displayName)
+    DS9.zoom = "to fit"
+    DS9.xpaset("cmap invert yes")
+    DS9.xpaset("zomm to fit")
+    global process_name
+    process_name = DS9.process_name
+    initializeZoom = 1 
+
+
+    loutfile.write("")
+    sequence.write(1)
+
+    monitoredKeywords = (loutfile,sequence)
+
+    setupMonitoring(monitoredKeywords, wait=True)
+
+    # infinite loop
+
+    # store initial value of loutfile
+    loutfile_current = str(loutfile['ascii'])
+    say("Initial value for lastfile is %s" % (loutfile_current))
+    sequence = 0
+
+    say("Waiting for first exposure")
+    first_exposure = ktl.Expression('$kcwi.teststr != ""')
+    while True:
+        result = first_exposure.wait(timeout=5)
+        if result==True:
+            break
+    loutfile_current = str(loutfile['ascii'])
+
+    # infinite loop
+    while True:
+        say("Sequence: %d" % (sequence))
+        if sequence >=1:
+            say("Waiting for new exposure")
+            # this while True loop is necessary to handle CTRL+C signals
+            # otherwise they get ignored
+            new_exposure = '$kcwi.teststr != "%s"' % (loutfile_current)
+            new_exposure = ktl.Expression(new_exposure)
+            while True:
+              #say("loutfile_current = %s " % (loutfile_current))
+              #say("Last file        = %s " % (loutfile.read()))
+              result = new_exposure.wait(timeout=5)
+              if result==True:
+                  loutfile_current = str(loutfile['ascii'])
+                  break
+        # display
+        zoomflag = DS9.zoom
+        say("Displaying image..."+str(loutfile.read()))
+        binning=1
+        if os.path.isfile(loutfile.read()):
+            hdulist = fits.open(loutfile.read())
+            hdu=hdulist[0]
+            binning=hdu.header['BINNING']
+        DS9.open(loutfile.read(), 1)
+        sequence += 1
+
+        # deal with zoom parameters
+        if  initializeZoom:
+            time.sleep(1)
+            DS9.xpaset("zoom to fit")
+            
+            DS9.xpaset("region load /home/kcwirun/testing/ds9.reg")
+            
+
+            initializeZoom = 0
+            # change the value so that on subsequent displays we
+            # do not override the zoom factor set by the
+            # observer...
+        if not initializeZoom:
+            DS9.zoom = None
+            DS9.xpaset("orient y")
+            if binning == 1:
+                DS9.xpaset("region load /kroot/rel/default/bin/kcwi-ds9-b1.reg")
+            else: 
+                DS9.xpaset("region load /kroot/rel/default/bin/kcwi-ds9-b2.reg")
+           
+        
+
+
+if __name__ == '__main__':
+   args = parser.parse_args()
+   signal.signal(signal.SIGINT,sig_handler)
+   signal.signal(signal.SIGILL,sig_handler)
+   signal.signal(signal.SIGTERM,sig_handler)
+   autodisplaymagiq(args.displayName)

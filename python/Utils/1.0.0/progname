@@ -1,0 +1,25 @@
+#! /kroot/rel/default/bin/kpython
+
+from KCWI import Global
+import argparse,sys
+
+# parsing arguments
+description = "Returns or sets the TAC approved program"
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('name',nargs="?",default=None,help='TAC approved program')
+
+
+if __name__=="__main__":
+
+
+   args = parser.parse_args()
+   if args.name == None:
+      progname = Global.progname()
+      sys.stdout.write(str(progname)+"\n")
+   else:
+     Global.progname(name = args.name)
+
+
+
+
+
