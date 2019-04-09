@@ -1,0 +1,29 @@
+#! @KPYTHON@
+
+import subprocess
+
+def sleepdots(seconds):
+    i = 0 
+    while i < seconds:
+        i += 1
+        sys.stdout.write(".")
+        sys.stdout.flush()
+        time.sleep(1)
+
+    sys.stdout.write('\n')
+
+subprocess.Popen("kcwi start servers", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+print("Waiting for servers to start up")
+
+sleepdots(30)
+
+subprocess.Popen("kcwi start kcwi", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+print("Waiting for kcwi global server to start up")
+
+sleepdots(30)
+
+print("Starting keygrabber")
+
+subprocess.Popen("kcwi start keygrabber", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
