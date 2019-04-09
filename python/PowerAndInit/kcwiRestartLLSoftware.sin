@@ -1,15 +1,6 @@
 #! @KPYTHON@
 import subprocess
-
-def sleepdots(seconds):
-    i = 0 
-    while i < seconds:
-        i += 1
-        sys.stdout.write(".")
-        sys.stdout.flush()
-        time.sleep(1)
-
-    sys.stdout.write('\n')
+from KCWI.Helper import sleepdots
 
 subprocess.Popen("kcwiStopLLSoftware", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
 

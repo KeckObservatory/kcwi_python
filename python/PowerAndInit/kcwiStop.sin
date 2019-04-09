@@ -3,16 +3,7 @@
 import subprocess
 import sys
 import argparse
-
-def sleepdots(seconds):
-    i = 0 
-    while i < seconds:
-        i += 1
-        sys.stdout.write(".")
-        sys.stdout.flush()
-        time.sleep(1)
-
-    sys.stdout.write('\n')
+from KCWI.Helper import sleepdots
 
 description = "KCWI Stop Script"
 parser = argparse.ArgumentParser(description=description)
