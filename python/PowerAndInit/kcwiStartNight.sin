@@ -1,0 +1,84 @@
+#! @KPYTHON@
+from KCWI import Calibration
+import subprocess
+
+# Parsing arguments
+description = "KCWI Start of Night Scripts"
+parser = argparse.ArgumentParser(description=description)
+
+print(
+'''
+****************************************************"
+You have started the start-of-night  script."
+This script will do the following."
+ - insert mirror"
+ - turn on fear lamp"
+ - open fear lamp shutter"
+ - insert fpcam and make sure it's on"
+ - ask OA to run a guider focus"
+ - turn off lamps and close lamp shutters"
+ - set calibration mirror to Sky"
+ - open the hatch"
+**********************************************"
+
+
+
+'''
+)
+
+print('''
+Running MIRA:
+If this is the first night of a run and you don't plan to take sky flats, answer yes.
+If you want to start the night with twilight flats or this is NOT the first night of a run, answer no.
+'''
+)
+
+response = str(raw_input("Do you want to start the night with a focus (MIRA) ? (y/n) [y]"))
+if response not in ['n', 'N', 'no', 'No', 'NO']:
+    print("Turning on focal plane camera. Please wait...")
+    PowerInit.FPCamPower("on")
+    print("Moving the focal plane camera in beam. Please wait ...")
+    Calibration.image_slicer("fpcam")
+    print("Done")
+
+
+print('''
+KCWI is now setting up for GUIDER FOCUS. Please wait...
+'''
+)
+Calibration.hatch("close")
+#fpcamPower on
+#slicer fpcam
+Calibration.lamp("fear", "on")
+Calibration.lamp("thar", "on")
+Calibration.lamp_shutter("fear", "open")
+Calibration.lamp_shutter("thar", "open")
+Calibration.cal_mirror("Mirror")
+Calibration.cal_object("Pin300")
+
+print("Please ask the OA to focus the guider")
+# beep and wait...
+print("")
+response = raw_input("Press <Enter> to continue when the focus is done ...")
+
+Calibration.lamp("fear", "off")
+Calibration.lamp_shutter("fear", "close")
+Calibration.lamp("thar", "off")
+Calibration.lamp_shutter("thar", "close")
+Calibration.cal_mirror("Sky")
+Calibration.hatch("open")
+Calibration.cal_object("Dark")
+#fpcamPower off
+print("Turning on DAR correction. Please wait...")
+subprocess.Popen("kcwi start watchdar", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+print('''
+
+************************************************************"
+IMPORTANT: Using the web based configuration manager"
+           restore your science configuration BEFORE you take "
+           any science data!"
+************************************************************"
+'''
+)
+

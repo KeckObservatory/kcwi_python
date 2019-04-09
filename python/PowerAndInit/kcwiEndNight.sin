@@ -57,7 +57,6 @@ Powerinit.kcwiPower(1, 7, "off")
 #----------------------------------------------------------------
 # Ensure the internal KCWI lamps are off
 #----------------------------------------------------------------
-lamp all off
 Calibration.lamp("all", "off")
 
 #---------------------------
