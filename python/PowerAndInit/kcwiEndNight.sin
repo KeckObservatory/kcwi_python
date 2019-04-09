@@ -1,0 +1,88 @@
+#! @KPYTHON@
+
+from KCWI import Blue, PowerInit, Calibration
+import argparse
+import sys
+
+description = "KCWI End of Night Script"
+parser = argparse.ArgumentParser(description=description)
+args = parser.parse_args()
+
+
+print(
+'''
+****************************************************
+You have started the end-of-night shutdown script.
+This script will do the following.
+ - close the dust cover
+ - park the blue exchanger
+ - halts the focal plane camera
+ - power down the magiq guider
+ - power down the calibration lamps
+ - stop the rotator
+**********************************************
+
+
+
+'''
+)
+
+# ---------------------------------------------------------------
+# Close the dust cover
+# Park the optics
+# Shutdown focal plane camera
+# shutdown the magiq guider - NO! changed on 10/17/2017 LR
+# turn off lamps
+# ---------------------------------------------------------------
+
+Calibration.hatch("close")
+
+subprocess.Popen("kcwiStopRotator", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+PowerInit.FPCamPower('off')
+
+subprocess.Popen("kcwiStop", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+print("Parking BEX mechanisms")
+print("Parking Filter")
+Blue.filterb(target="None",move=True)
+print("Parking Grating")
+Blue.gratingb(target="None",move=True)
+
+# ---------------------------------------------------------------
+# Disable the hatch
+# ---------------------------------------------------------------
+Powerinit.kcwiPower(1, 7, "off")
+
+#----------------------------------------------------------------
+# Ensure the internal KCWI lamps are off
+#----------------------------------------------------------------
+lamp all off
+Calibration.lamp("all", "off")
+
+#---------------------------
+# DISABLE DAR
+#---------------------------
+subprocess.Popen("kcwi stop watchdar", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+#----------------------------------------------------------------
+# If KCWI is the current instrument, ensure the dome lamps 
+# are off...
+#----------------------------------------------------------------
+#set currinst = `show -s dcs -terse currinst`
+#if ( "$currinst" == "KCWI" ) then
+#    domelamps off
+#endif
+
+# print completion message....
+print(
+'''
+
+    -------------------------------------------------------------
+          KCWI Instrument End-of-Night shutdown complete
+    -------------------------------------------------------------
+
+'''
+)
+
+sys.exit(0)
