@@ -1,0 +1,9 @@
+#! @KPYTHON@
+
+import subprocess
+
+subprocess.Popen("kcwi stop kcwi", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+subprocess.Popen("kcwi stop keygrabber", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+subprocess.Popen("kcwi stop servers", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
