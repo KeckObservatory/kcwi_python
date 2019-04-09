@@ -1,0 +1,69 @@
+#! @KPYTHON@
+
+import subprocess
+import sys
+import argparse
+
+def sleepdots(seconds):
+    i = 0 
+    while i < seconds:
+        i += 1
+        sys.stdout.write(".")
+        sys.stdout.flush()
+        time.sleep(1)
+
+    sys.stdout.write('\n')
+
+description = "KCWI Stop Script"
+parser = argparse.ArgumentParser(description=description)
+args = parser.parse_args()
+
+print("Stopping Autodisplay for Blue Camera. Pausing 2 sec")
+subrocess.Popen("kcwi stop kcwidisplayb", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+sleepdots(2)
+
+print("Stopping Autodisplay for focal plane camera. Pausing 2 sec")
+subrocess.Popen("kcwi stop kfcdisplay", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+sleepdots(2)
+
+print("Stopping Autodisplay for Magiq Guider. Pausing 2 sec")
+subrocess.Popen("kcwi stop magiqdisplay", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+sleepdots(2)
+
+print("Stopping Configuration Manager Backend. Pausing 2 sec")
+subrocess.Popen("kcwi stop kcwiConfManager", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+sleepdots(2)
+
+print("Stopping Eventsounds. Pausing 2 sec")
+subrocess.Popen("kcwi stop eventsounds", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+sleepdots(2)
+
+print("Stopping SoundBoard. Pausing 2 sec")
+subrocess.Popen("kcwi stop soundboard", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+sleepdots(2)
+
+print("Stopping Exposure GUI.")
+subrocess.Popen("kcwi stop kcwiExposureGui", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+print("Stopping Status GUI.")
+subrocess.Popen("kcwi stop kcwiStatusGui", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+print("Stopping Calibration GUI.")
+subrocess.Popen("kcwi stop kcwiCalibrationGui", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+print("Stopping Offset GUI.")
+subrocess.Popen("kcwi stop kcwiOffsetGui", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+# ---------------------------------------------------------------
+# Stop the KCWI Desktop
+# ---------------------------------------------------------------
+
+subrocess.Popen("kcwi stop kdesktop", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+subrocess.Popen("kcwi stop kdesktop_eng", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+subrocess.Popen("kcwi stop kdesktop_oa", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+
+print('''
+      ----------------------------------------------------------
+                KCWI software shutdown complete
+      ----------------------------------------------------------
+'''
+)
+sleepdots(5)
+sys.exit(0)
