@@ -1,4 +1,4 @@
-#! /kroot/rel/default/bin/kpython
+#! @KPYTHON@
 import subprocess
 
 def sleepdots(seconds):
