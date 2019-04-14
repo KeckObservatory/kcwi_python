@@ -1,0 +1,13 @@
+#! @KPYTHON@
+
+#from KCWI import Red
+import sys
+
+sys.stdout.write("Red channel is not ready")
+
+#Red.ampmoder(ampmode=1)
+#Red.gainmulr(gainmul=10)
+#Red.ccdspeedr(ccdspeed=0)
+#Red.binningr(binning='2,2')
+
+#sys.stdout.write("Default detector parameters have been set\n")

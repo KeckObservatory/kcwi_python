@@ -1,0 +1,12 @@
+#! @KPYTHON@
+
+from KCWI import Blue
+import sys
+
+Blue.ampmodeb(ampmode=9)
+Blue.gainmulb(gainmul=10)
+Blue.ccdmodeb(ccdmode=0)
+Blue.binningb(binning='2,2')
+Blue.autoshutb(mode=1)
+
+sys.stdout.write("Default detector parameters have been set\n")
