@@ -1,0 +1,34 @@
+#! @KPYTHON@
+
+
+import ktl
+import os, sys, time
+import subprocess
+import argparse
+from KCWI import PowerInit
+
+# Parsing arguments
+description = "Stop the K-Mirror rotator and disconnects from DCS"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+    kros = ktl.cache('kros')
+    track = kros['settrckmode']
+    mode = kros['rotmode']
+
+    track.write(0)
+    mode.write(3)
+
+    p = subprocess.Popen("kcwi stop watchrot", shell=True)
+
+    dcs = ktl.cache('dcs')
+    dcs['ROTSTST'].write('HALT')
+    dcs['ROTERRS'].write('Idle')
+    dcs['ROTSTAT'].write('halted')
+    dcs['ROTERVL'].write(0)
+
+
+
+
+
