@@ -1,0 +1,50 @@
+#! @KPYTHON@
+
+
+import ktl
+import os, sys, time
+import subprocess
+import argparse
+from KCWI import PowerInit
+
+# Parsing arguments
+description = "Start the K-Mirror rotator and connects to DCS"
+parser = argparse.ArgumentParser(description=description)
+
+if __name__ == '__main__':
+
+    kros = ktl.cache('kros')
+    homed = kros['rothomed']
+
+    dcs = ktl.Service('dcs')
+
+
+    if homed.read() != "1":
+        sys.stdout.write("Initializing rotator...")
+        PowerInit.homeRotator()
+    else:
+        sys.stdout.write("The rotator is already initialized")
+    
+    PowerInit.setupRotatorTracking()
+
+    instrument = dcs['INSTRUME'].read()
+    tertiary = dcs['TERTPOSN'].read()
+
+    if instrument != "KCWI":
+        sys.stdout.write("***WARNING***:The current instrument [%s] is NOT KCWI.\n" % (instrument))
+        sys.stdout.write("The rotator cannot talk to DCS.\n")
+        sys.exit(1)
+    if tertiary != "rnas":
+        sys.stdout.write("***WARNING***:The tertiary mirror [%s] is not pointing at rnas.\n" % (tertiary))
+        sys.stdout.write("The rotator cannot talk to DCS.\n")
+        sys.exit(1)
+
+    p = subprocess.Popen("kcwi start watchrot", shell=True)
+
+
+    track = kros['settrckmode']
+
+    track.write(1)
+
+
+
