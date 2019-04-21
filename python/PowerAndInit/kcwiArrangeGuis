@@ -57,4 +57,18 @@ arrangeGui(uidisp2, 'AutoDisplayMAGIQ', 250, 25, 728, 861)
 arrangeGui(uidisp2, 'eventsounds', 1600, 700, 0, 0)
 arrangeGui(uidisp2, 'Alignment', 1000, 25, 0, 0)
 
+
+#####Arange using paramiko to ssh
+####TODO need to figure out vm-kcwi login info
+####and how to execute the arrangeGui function
+#key = paramiko.ECDSAKey(data=base64.b64decode(b''))
+#client = paramiko.SSHClient()
+#client.get_host_keys().add('vm-kcwi', 'ecdsa-sha2-nistp256', key)
+#client.connect('vm-kcwi', username='kcwirun', password='outofU!')
+#stdin, stdout, stderr = client.exec_command('ls')
+#for line in stdout:
+#    print('... ' + line.strip('\n'))
+#client.close()
+
+
 sys.exit(0)
