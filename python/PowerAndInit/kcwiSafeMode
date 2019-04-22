@@ -1,0 +1,134 @@
+#! /kroot/rel/default/bin/kpython
+#STILL TODO: big part is warning email.
+import argparse
+import sys
+import subprocess
+import os
+
+# check arguments
+
+description = "Run KCWI in Safe Mode"
+parser = argparse.ArgumentParser(description=description)
+args = parser.parse_args()
+
+cmd = sys.argv[0]
+fail = False
+# move the filter...
+print(
+'''
+----------------------------------------
+Inserting a dark filter
+----------------------------------------
+'''
+)
+
+i = 0
+imax = 10
+keepgoing = 1
+while keepgoing == 1:
+
+    i+=1
+###TODO figure out if we need this
+#    set_state -v <<EOF
+    p = subprocess.Popen("kcwi  OBSMODE   Dark-spectroscopy", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+    (output, error) = p.communicate()
+    # check for success...
+    if error == 0:
+	keepgoing = 0
+    else:
+	print("WARNING: DARK filter move failed (attempt $i/$imax)\n")
+	if i >= imax:
+	    print("ERROR: exceeded max attempts on DARK filter move!\n\a")
+            fail = True
+
+# close the dust cover using the script because 
+# it ensures that the keyword server is unlocked 
+# before closing.
+print(
+'''
+----------------------------------------
+Closing the hatch"
+----------------------------------------
+'''
+)
+i = 0
+imax = 10
+keepgoing = 1
+while keepgoing == 1:
+
+    i += 1
+    p = subprocess.Popen("dustclose", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+    (output, error) = p.communicate()
+    # check for success...
+    if status == 0:
+	keepgoing = 0
+    else:
+	print("WARNING: KCWI hatch move failed (attempt $i/$imax)\n\a")
+	if i >= imax:
+	    print("ERROR: exceeded max attempts on KCWI hatch move!\n\a")
+            #TODO does this need a set fail? not here orignally
+
+# exit if no failures...
+if fail is not True:
+    sys.exit(0)
+
+# get current state...
+p = subprocess.Popen("show -s kcwi -terse mdcname", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+(output, error) = p.communicate()
+hatchpos = output
+
+p = subprocess.Popen("show -s kcwi -terse obsmode", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+(output, error) = p.communicate()
+obsmode = output
+
+p = subprocess.Popen("whoami", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+(output, error) = p.communicate()
+whoami = output
+
+p = subprocess.Popen("timestamp", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+(output, error) = p.communicate()
+timestamp = output
+
+
+
+#TODO figure out warning email
+# send warning email...
+#mailx -s "Failed to put KCWI into SAFE mode" \
+#    kcwi_info@keck.hawaii.edu <<EOF
+
+emailoutput = '''WARNING: the %s script failed to put KCWI into "safe mode" to
+protect the detector.  The mode we want KCWI in is:
+
+   HATCHPOS = closed
+   OBSMODE  = Dark-spectroscopy or Dark-imaging
+
+but the current settings are:
+
+   HATCHPOS = %s
+   OBSMODE  = %s
+
+Please do the following (or contact a Support Astronomer) to put
+KCWI into safe mode:
+
+  1. Log into kcwiserver (ssh moseng@kcwiserver) .
+  2. Run 'testAll'.
+  3. Check output and verify that all servers are healthy; if not, then 
+     fix them.
+  4. Execute the command 'kcwiSafeMode' to ensure that the KCWI 
+     hatch is closed and the filter is set to the dark position.
+
+------------------------------------------------------------------------
+Generator: %s
+Account:   %s
+Time:      %s''' % (cmd, hatchpos, obsmode, cmd, whoami, timestamp)
+
+f = file.open('msgfilesafe.txt', w)
+f.write(emailoutput)
+
+command = "mailx -s 'Failed to put KCWI into SAFE mode' kcwi_info@keck.hawaii.edu > msgfile.txt"
+p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+p.wait()
+
+os.remove('msgfilesafe.txt')
+
+sys.exit(1)
