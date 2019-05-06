@@ -7,11 +7,22 @@ defsystems = ['computers', 'servers', 'power', 'settings', 'apps', 'daemons', 's
 #TODO figure out how to allow no argument
 description = "check functionality of all KCWI systems"
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument('systems', nargs='*', choices = defsystems, help='choose which systems to check (default is all EXCEPT apps)')
+parser.add_argument('systems', nargs='*', help='choose which systems to check (default is all EXCEPT apps)')
 args = parser.parse_args()
 
+#TODO for some reason, adding choices to the systems argument doesn't allow for no arguments
+#this does the choices check instead, should redo when I figure out issue
+if args.systems != []: 
+    systems = args.systems
+    for system in systems:
+        if system not in defsystems:
+            print("error: argument systems: invalid choice: [] (choose from 'computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages')")
+            sys.exit(1)
+else:
+    systems = ['computers', 'servers', 'power', 'settings', 'daemons', 'stages'] #list of strings in the system array without apps
+
 #label making function
-def labelsize(string):
+def labelize(string):
     size = 45
     label = ' %s' % string
     print(label)
@@ -20,21 +31,109 @@ def labelsize(string):
     return label
 
 #defining variables
-n_errors = 0; # number of errors
-n_warnings = 0; # number of errors
-my( $key, $value); #TODO not sure about these two or the one below
-my( $type, $pid);
+n_errors = 0 # number of errors
+n_warnings = 0 # number of errors
+#my( $key, $value); TODO not sure about these two or the one below
+#my( $type, $pid);
 server_name = ''
 computer = ''
 command = []
 system = ''
 command = ''
-my( $state, $message);
+#my( $state, $message);
 options = {}
 
-if args.systems != []:
-    systems = args.systems
-else:
-    systems = ['computers', 'servers', 'power', 'settings', 'daemons', 'stages'] #list of strings in the system array without apps
 
+# verify host...
+#make sure you run on right computer
+
+goodhost ='kcwiserver'
+testhost = 'kcwibuild'
+env = os.environ.get('HOST')
+if env != goodhost and env != testhost:
+    print("ERROR: you can only run testAll on %s or on %s" % (goodhost, testhost))
+    sys.exit(1)
+
+
+#----------------------------------------
+# Check computers
+#----------------------------------------
+if 'computers' in systems:
+    print("Checking %s computers:" % instrument)
+
+    computer_description = {
+        'kcwitarg' : 'detector target',
+        'kcwiserver' : 'main server',
+        'bexgalil' : 'blue exchanger Galil',
+        'bmsgalil' : 'blue mechanisms Galil',
+        'calgalil' : 'calibration unit Galil',
+        'rotgalil' : 'rotator Galil',
+        'lantronix' : 'Lantronix terminal server',
+        'eaton' : 'AC power controller 1',
+        'eaton2' : 'AC power controller 2',
+        'eaton3' : 'AC power controller 3',
+        'lakeshore' : 'Lakeshore unit',
+    }
+    for computer in sorted(computer_description):
+        sys.stdout.write(labelize("Checking %s" % computer))
+        sys.stdout.flush()
+        command = "ping -c 1 -t 1 %s" % computer
+        p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+        (output, err) = p.communicate()
+        if err == '':
+            print("%s (%s)" % (good, computer_description[computer]))
+        else:
+            print("%s (%s)" % (error, computer_description[computer]))
+            n_errors+=1
+
+#----------------------------------------
+# Check servers
+#----------------------------------------
+if 'servers' in systems:
+    print("Checking %s servers:\n" % instrument)
+
+    server_description = {
+        'kcwi' : 'global server',
+        'kbes' : 'blue exchanger',
+        'kbgs' : 'blue pressure gauge',
+        'kbms' : 'blue mechanisms',
+        'kbvs' : 'blue ion pump',
+        'kcas' : 'calibration',
+        'kbds' : 'blue detector',
+        'kfcs' : 'focal plane camera',
+        'kp1s' : 'power 1',
+        'kp2s' : 'power 2',
+        'kp3s' : 'power 3',
+        'kros' : 'rotator',
+        'kt1s' : 'temperature 1',
+        'kt2s' : 'temperature 2',
+    }
+    # loop over servers and check the lastalive keyword...
+
+    keyword = "lastalive"
+    # compute an alphabetized list with global server first...
+    # TODO I'm not sure if there's an easy way to do this in python,
+    # instead, checking global server first then running the rest alphabetically
+    server = 'kcwi'
+    sys.stdout.write(labelize("Checking %s" % server))
+    sys.stdout.flush()
+    command = "show -s %s %s" % (server, keyword)
+    p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+    (output, err) = p.communicate()
+    if err == '':
+        print("%s (%s)" % (good, server_description[server]))
+    else:
+        print("%s (%s)" % (error, server_description[server]))
+    for server in sorted(server_description):
+        if server != 'kcwi':
+            sys.stdout.write(labelize("Checking %s" % server))
+            sys.stdout.flush()
+            command = "show -s %s %s" % (server, keyword)
+            p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+            (output, err) = p.communicate()
+            if err == '':
+                print("%s (%s)" % (good, server_description[server]))
+            else:
+                print("%s (%s)" % (error, server_description[server]))
+                n_errors+=1
 
