@@ -1,8 +1,9 @@
-#! /kroot/rel/default/bin/kpython
+#! @KPYTHON@
 import subprocess
 import argparse
 import os
 import sys
+import ktl
 
 defsystems = ['computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages'] #default system values
 #TODO see if we need to add -m option
@@ -18,10 +19,17 @@ if args.systems != []:
     systems = args.systems
     for system in systems:
         if system not in defsystems:
-            print("error: argument systems: invalid choice: [] (choose from 'computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages')")
+            print("error: argument systems: invalid choice: [%s] (choose from 'computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages')" % system)
             sys.exit(1)
 else:
     systems = ['computers', 'servers', 'power', 'settings', 'daemons', 'stages'] #list of strings in the system array without apps
+
+# misc definitions...
+instrument = 'KCWI'
+(good, warning, error) = ("OK", "WARNING!\a", "ERROR!\a") 
+n_errors = 0 # number of errors
+n_warnings = 0 # number of errors
+
 
 #label making function
 def labelize(string):
@@ -32,37 +40,61 @@ def labelize(string):
     return label
 
 #reportStages function
-#TODO write this
 
-
-def reportStages(system):
+def reportStages(system, system_dic):
+    global n_errors
+    global n_warnings
     print("Checking %s %s:" % (instrument, system))
 
     for record in system_dic:
+        state = good
+        message = ''
         (library, keyword) = (record[2], record[3])
-        if record[1] = yes:
-            #TODO use ktl to extract
-            name  = "show -s $library -terse %s" % record[0]
+        if record[1] == 'yes':
+            name  = ktl.read(library, record[0])
         else:   
             name = record[0]
 
-    sys.stdout.write(labelize("Checking %s" % server))
-    sys.stdout.flush()
+        sys.stdout.write(labelize("Checking %s" % name))
+        sys.stdout.flush()
 
-    #TODO use ktl here
-    value = "show -s %s -terse %s" % (library, keyword)
+        value = ktl.read(library, keyword)
 
-    if 'tmp' in keyword and keyword != -1:
-        value = value - 273.15
+        if 'tmp' in keyword and keyword != -1:
+            value = float(value) - 273.15
+
+        if record[5] is None: #if maxvalue column is none, do goodvalue check
+            if value != record[4]:
+                state = record[7]
+                message = "Current value '%s' should be %s" % (value, record[4])
+        else:
+            if record[4] > float(value) or float(value) > record[5]:
+                state = record[7]
+                message = "Current value %s outside of good range %s - %s" % (value, record[4], record[5])
+
+        if record[6] is not None: #check for locked
+            try:
+                ktl.read(library, 'lastalive')
+                value = ktl.read(library, record[6])
+                if int(value) != 0:
+                    state = record[7]
+                    message = 'stage is locked out'
+            except:
+                state = warning
+                message = 'Error: Cannot check stage status. No access to server.'
 
 
+        if state == error:
+            n_errors += 1
+        elif state == warning:
+            n_warnings += 1
+        elif state != good:
+            print("illegal BADSTATUS value is neither ERROR nor WARNING")
+            return
 
+        print("%s %s" % (state, message))
+    return
 
-# misc definitions...
-instrument = 'KCWI'
-(good, warning, error) = ("OK", "WARNING!", "ERROR!") 
-n_errors = 0 # number of errors
-n_warnings = 0 # number of errors
 
 # verify host...
 
@@ -91,7 +123,7 @@ if 'computers' in systems:
         'eaton' : 'AC power controller 1',
         'eaton2' : 'AC power controller 2',
         'eaton3' : 'AC power controller 3',
-        'lakeshore' : 'Lakeshore unit',
+        'lakeshore' : 'Lakeshore unit'
     }
     for computer in sorted(computer_description):
         sys.stdout.write(labelize("Checking %s" % computer))
@@ -110,7 +142,7 @@ if 'computers' in systems:
 # Check servers
 #----------------------------------------
 if 'servers' in systems:
-    print("Checking %s servers:\n" % instrument)
+    print("Checking %s servers:" % instrument)
 
     server_description = {
         'kcwi' : 'global server',
@@ -126,7 +158,7 @@ if 'servers' in systems:
         'kp3s' : 'power 3',
         'kros' : 'rotator',
         'kt1s' : 'temperature 1',
-        'kt2s' : 'temperature 2',
+        'kt2s' : 'temperature 2'
     }
     # loop over servers and check the lastalive keyword...
 
@@ -137,6 +169,7 @@ if 'servers' in systems:
     server = 'kcwi'
     sys.stdout.write(labelize("Checking %s" % server))
     sys.stdout.flush()
+    #TODO kcwi server not working with ktl, using subprocess for now
     command = "show -s %s %s" % (server, keyword)
     p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
     (output, err) = p.communicate()
@@ -148,12 +181,10 @@ if 'servers' in systems:
         if server != 'kcwi':
             sys.stdout.write(labelize("Checking %s" % server))
             sys.stdout.flush()
-            command = "show -s %s %s" % (server, keyword)
-            p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
-            (output, err) = p.communicate()
-            if err == '':
+            try:
+                ktl.read(server, 'lastalive')
                 print("%s (%s)" % (good, server_description[server]))
-            else:
+            except:
                 print("%s (%s)" % (error, server_description[server]))
                 n_errors+=1
 
@@ -168,14 +199,17 @@ if 'apps' in systems:
     for app in apps:
         sys.stdout.write(labelize("Checking %s" % app))
         sys.stdout.flush()
-        command = "get_kcwi_pid $item" % app
+        command = "get_kcwi_pid %s" % app
         p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
         (output, err) = p.communicate()
-        if err == '':
-            print(good)
-        else:
+        if output == '': 
             print(error)
             n_errors+=1
+        elif 'ERROR' in output:
+            print(error)
+            n_errors+=1
+        else: 
+            print(good)
 
 
 #----------------------------------------
@@ -188,14 +222,17 @@ if 'daemons' in systems:
     for daemon in daemons:
         sys.stdout.write(labelize("Checking %s" % daemon))
         sys.stdout.flush()
-        command = "get_kcwi_pid $item" % daemon
+        command = "get_kcwi_pid %s" % daemon
         p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
         (output, err) = p.communicate()
-        if err == '':
-            print(good)
-        else:
+        if output == '': 
             print(error)
             n_errors+=1
+        elif 'ERROR' in output:
+            print(error)
+            n_errors+=1
+        else: 
+            print(good)
 
 
 #----------------------------------------
@@ -205,33 +242,33 @@ if 'daemons' in systems:
 if 'power' in systems:
     #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, GOODVAULE, BADSTATUS]
     power_dic = [
-        ['pwname1', 'yes', 'kp1s', 'pwstat1', '1', warning] # power strip 1, pos 1 FPCam
-        ['pwname2', 'yes', 'kp1s', 'pwstat2', '1', error] # power strip 1, pos 2 Magiq
-        ['pwname3', 'yes', 'kp1s', 'pwstat3', '1', error] # power strip 1, pos 3 Glycol
-       #['pwname4', 'yes', 'kp1s', 'pwstat4', '1', error] # power strip 1 pos 4 Lkshore1
-        ['pwname5', 'yes', 'kp1s', 'pwstat5', '1', error] # power strip 1 pos 5 BPGauge
-        ['pwname6', 'yes', 'kp1s', 'pwstat6', '1', error] # power strip 1 pos 6 BVacIon
-        ['pwname7', 'yes', 'kp1s', 'pwstat7', '1', warning] # power strip 1 pos 7 Hatch
-        ['pwname8', 'yes', 'kp1s', 'pwstat8', '1', warning] # power strip 1 pos 8 BShutter
-        ['pwname1', 'yes', 'kp2s', 'pwstat1', '1', error] # power strip 2 pos 1 HeatExchanger
-        ['pwname2', 'yes', 'kp2s', 'pwstat2', '1', error] # power strip 2 pos 2 BDet
-        ['pwname3', 'yes', 'kp2s', 'pwstat3', '0', error] # power strip 2 pos 3 Unused
-        ['pwname4', 'yes', 'kp2s', 'pwstat4', '1', error] # power strip 2 pos 4 Lkshore2
-        ['pwname5', 'yes', 'kp2s', 'pwstat5', '1', error] # power strip 2 pos 5 Lantrnx1
-        ['pwname6', 'yes', 'kp2s', 'pwstat6', '0', error] # power strip 2 pos 6 Unused
-        ['pwname7', 'yes', 'kp2s', 'pwstat7', '1', error] # power strip 2 pos 7 PB2:BEX;BMS
-        ['pwname8', 'yes', 'kp2s', 'pwstat8', '0', error] # power strip 2 pos 8 Unused
-        ['pwname1', 'yes', 'kp3s', 'pwstat1', '1', error] # power strip 3 pos 1 CalLamps
-        ['pwname2', 'yes', 'kp3s', 'pwstat2', '0', error] # power strip 3 pos 2 Unused
-        ['pwname3', 'yes', 'kp3s', 'pwstat3', '0', error] # power strip 3 pos 3 Unused
-        ['pwname4', 'yes', 'kp3s', 'pwstat4', '0', error] # power strip 3 pos 4 Unused
-        ['pwname5', 'yes', 'kp3s', 'pwstat5', '0', error] # power strip 3 pos 5 Unused
-        ['pwname6', 'yes', 'kp3s', 'pwstat6', '0', error] # power strip 3 pos 6 Unused
-        ['pwname7', 'yes', 'kp3s', 'pwstat7', '0', error] # power strip 3 pos 7 Unused
-        ['pwname8', 'yes', 'kp3s', 'pwstat8', '1', error] # power strip 3 pos 8 PB1:CAL;ROT
+        ['pwname1', 'yes', 'kp1s', 'pwstat1', '1', None, None, warning], # power strip 1, pos 1 FPCam
+        ['pwname2', 'yes', 'kp1s', 'pwstat2', '1', None, None, error], # power strip 1, pos 2 Magiq
+        ['pwname3', 'yes', 'kp1s', 'pwstat3', '1', None, None, error], # power strip 1, pos 3 Glycol
+       #['pwname4', 'yes', 'kp1s', 'pwstat4', '1', None, None, error], # power strip 1 pos 4 Lkshore1
+        ['pwname5', 'yes', 'kp1s', 'pwstat5', '1', None, None, error], # power strip 1 pos 5 BPGauge
+        ['pwname6', 'yes', 'kp1s', 'pwstat6', '1', None, None, error], # power strip 1 pos 6 BVacIon
+        ['pwname7', 'yes', 'kp1s', 'pwstat7', '1', None, None, warning], # power strip 1 pos 7 Hatch
+        ['pwname8', 'yes', 'kp1s', 'pwstat8', '1', None, None, warning], # power strip 1 pos 8 BShutter
+        ['pwname1', 'yes', 'kp2s', 'pwstat1', '1', None, None, error], # power strip 2 pos 1 HeatExchanger
+        ['pwname2', 'yes', 'kp2s', 'pwstat2', '1', None, None, error], # power strip 2 pos 2 BDet
+        ['pwname3', 'yes', 'kp2s', 'pwstat3', '0', None, None, error], # power strip 2 pos 3 Unused
+        ['pwname4', 'yes', 'kp2s', 'pwstat4', '1', None, None, error], # power strip 2 pos 4 Lkshore2
+        ['pwname5', 'yes', 'kp2s', 'pwstat5', '1', None, None, error], # power strip 2 pos 5 Lantrnx1
+        ['pwname6', 'yes', 'kp2s', 'pwstat6', '0', None, None, error], # power strip 2 pos 6 Unused
+        ['pwname7', 'yes', 'kp2s', 'pwstat7', '1', None, None, error], # power strip 2 pos 7 PB2:BEX;BMS
+        ['pwname8', 'yes', 'kp2s', 'pwstat8', '0', None, None, error], # power strip 2 pos 8 Unused
+        ['pwname1', 'yes', 'kp3s', 'pwstat1', '1', None, None, error], # power strip 3 pos 1 CalLamps
+        ['pwname2', 'yes', 'kp3s', 'pwstat2', '0', None, None, error], # power strip 3 pos 2 Unused
+        ['pwname3', 'yes', 'kp3s', 'pwstat3', '0', None, None, error], # power strip 3 pos 3 Unused
+        ['pwname4', 'yes', 'kp3s', 'pwstat4', '0', None, None, error], # power strip 3 pos 4 Unused
+        ['pwname5', 'yes', 'kp3s', 'pwstat5', '0', None, None, error], # power strip 3 pos 5 Unused
+        ['pwname6', 'yes', 'kp3s', 'pwstat6', '0', None, None, error], # power strip 3 pos 6 Unused
+        ['pwname7', 'yes', 'kp3s', 'pwstat7', '0', None, None, error], # power strip 3 pos 7 Unused
+        ['pwname8', 'yes', 'kp3s', 'pwstat8', '1', None, None, error] # power strip 3 pos 8 PB1:CAL;ROT
     ]
 
-    reportStage(power_dic)
+    reportStages('power', power_dic)
 
 
 #----------------------------------------
@@ -241,23 +278,23 @@ if 'power' in systems:
 if 'stages' in systems:
     #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, GOODVAULE, LOCKED, BADSTATUS]
     stages_dic = [
-        ['Blue exchanger status', 'no', 'kbes', 'status', 'OK', 'movelock', warning] # global bes status
-        ['Grating', 'no', 'kbes', 'gstatus', 'Success: Coordinated park motion complete.', 'movelock', warning] # Grating 
-        ['Filter', 'no', 'kbes', 'fstatus', 'Success: Coordinated park motion complete.', 'movelock', warning] # Filter
-        ['Grating rotator', 'no', 'kbes', 'grstatus', 'Move complete', 'movelock', warning] # grating rotator
-        ['Grating pusher', 'no', 'kbes', 'gpstatus', 'Move complete', 'movelock', warning] # grating pusher
-        ['Grating transfer', 'no', 'kbes', 'gtstatus', 'Move complete', 'movelock', warning] # grating transfer
-        ['Filter pusher', 'no', 'kbes', 'fpstatus', 'Move complete', 'movelock', warning] # filter pusher
-        ['Filter transfer', 'no', 'kbes', 'ftstatus', 'Move complete', 'movelock', warning] # filter transfer
-        ['Grating and filter cassette', 'no', 'kbes', 'castatus', 'Move complete', 'movelock', warning] # grating cassette
-        ['Focus mechanism', 'no', 'kbms', 'focstatus', 'OK', 'movelock', warning] # Focus
-        ['Nod and shuffle mask', 'no', 'kbms', 'nasstatus', 'OK', 'movelock', warning] # Nod and shuffle
-        ['Articulation stage', 'no', 'kbms', 'artstatus', 'OK', 'movelock', warning] # Articulation stage
-        ['IFU', 'no', 'kcas', 'ifustatus', 'OK', 'movelock', warning] # IFU
-        ['Calibration unit', 'no', 'kcas', 'status', 'OK', 'movelock', warning] # Status
+        ['Blue exchanger status', 'no', 'kbes', 'status', 'OK', None, 'movelock', warning], # global bes status
+        ['Grating', 'no', 'kbes', 'gstatus', 'Success: Coordinated park motion complete.', None, 'movelock', warning], # Grating 
+        ['Filter', 'no', 'kbes', 'fstatus', 'Success: Coordinated park motion complete.', None, 'movelock', warning], # Filter
+        ['Grating rotator', 'no', 'kbes', 'grstatus', 'Move complete', None, 'movelock', warning], # grating rotator
+        ['Grating pusher', 'no', 'kbes', 'gpstatus', 'Move complete', None, 'movelock', warning], # grating pusher
+        ['Grating transfer', 'no', 'kbes', 'gtstatus', 'Move complete', None, 'movelock', warning], # grating transfer
+        ['Filter pusher', 'no', 'kbes', 'fpstatus', 'Move complete', None, 'movelock', warning], # filter pusher
+        ['Filter transfer', 'no', 'kbes', 'ftstatus', 'Move complete', None, 'movelock', warning], # filter transfer
+        ['Grating and filter cassette', 'no', 'kbes', 'castatus', 'Move complete', None, 'movelock', warning], # grating cassette
+        ['Focus mechanism', 'no', 'kbms', 'focstatus', 'OK', None, 'movelock', warning], # Focus
+        ['Nod and shuffle mask', 'no', 'kbms', 'nasstatus', 'OK', None, 'movelock', warning], # Nod and shuffle
+        ['Articulation stage', 'no', 'kbms', 'artstatus', 'OK', None, 'movelock', warning], # Articulation stage
+        ['IFU', 'no', 'kcas', 'ifustatus', 'OK', None, 'movelock', warning], # IFU
+        ['Calibration unit', 'no', 'kcas', 'status', 'OK', None, 'movelock', warning] # Status
     ]
 
-    reportStage(stages_dic)
+    reportStages('stages', stages_dic)
 
 
 #----------------------------------------
@@ -267,22 +304,39 @@ if 'stages' in systems:
 if 'settings' in systems:
     #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, MINVALUE, MAXVALUE, BADSTATUS]
     settings_dic = [
-        ['tmploc1', 'yes', 'kt1s', 'tmp1', -112.15, -108.15, warning] # Blue CCD A
-        ['tmploc2', 'yes', 'kt1s', 'tmp2', -5, 5, warning] # blue cam B
-        ['tmploc3', 'yes', 'kt1s', 'tmp3', -5, 5, warning] # Blue shutter
-        ['tmploc4', 'yes', 'kt1s', 'tmp4', -112.15, -108.15, warning] # blue invar plate
-        ['tmploc5', 'yes', 'kt1s', 'tmp5', -140, -120, warning] # blue strap bottom
-        ['tmploc6', 'yes', 'kt1s', 'tmp6', -180, -160, warning] # blue strap top
-        ['tmploc7', 'yes', 'kt1s', 'tmp7', -5, 5, warning] # blue case...
-        ['tmploc8', 'yes', 'kt1s', 'tmp7', -5, 10, warning] # bench bottom
-        ['Status (ion pump)', 'no', 'kbvs', 'hvon', 1, error] # ion pump status
-        ['Pressure (ion pump)', 'no', 'kbvs', 'pressure', 0.0, 0.0000001, warning] # ion pump pressure
-        ['Current (ion pump)', 'no', 'kbvs', 'current', 0.0, 0.000002, warning] # ion pump current
-        ['Voltage (ion pump)', 'no', 'kbvs', 'voltage', 4900, 5010, warning] # ion pump voltage
-        ['Pressure gauge', 'no', 'kbgs', 'pgpress', 0, 0.1, warning] # pressure gauge
-        ['CCD power', 'no', 'kbds', 'CCDPOWER', 1, warning] # datataking system status
-        ['current instrument', 'no', 'dcs', 'currentinst', instrument, warning] # current instrument check
+        ['tmploc1', 'yes', 'kt1s', 'tmp1', -112.15, -108.15, None, warning], # Blue CCD A
+        ['tmploc2', 'yes', 'kt1s', 'tmp2', -5, 5, None, warning], # blue cam B
+        ['tmploc3', 'yes', 'kt1s', 'tmp3', -5, 5, None, warning], # Blue shutter
+        ['tmploc4', 'yes', 'kt1s', 'tmp4', -112.15, -108.15, None, warning], # blue invar plate
+        ['tmploc5', 'yes', 'kt1s', 'tmp5', -140, -120, None, warning], # blue strap bottom
+        ['tmploc6', 'yes', 'kt1s', 'tmp6', -180, -160, None, warning], # blue strap top
+        ['tmploc7', 'yes', 'kt1s', 'tmp7', -5, 5, None, warning], # blue case...
+        ['tmploc8', 'yes', 'kt1s', 'tmp7', -5, 10, None, warning], # bench bottom
+        ['Status (ion pump)', 'no', 'kbvs', 'hvon', '1', None, None, error], # ion pump status
+        ['Pressure (ion pump)', 'no', 'kbvs', 'pressure', 0.0, 0.0000001, None, warning], # ion pump pressure
+        ['Current (ion pump)', 'no', 'kbvs', 'current', 0.0, 0.000002, None, warning], # ion pump current
+        ['Voltage (ion pump)', 'no', 'kbvs', 'voltage', 4900, 5010, None, warning], # ion pump voltage
+        ['Pressure gauge', 'no', 'kbgs', 'pgpress', 0, 0.1, None, warning], # pressure gauge
+        ['CCD power', 'no', 'kbds', 'CCDPOWER', '1', None, None, warning], # datataking system status
+        ['current instrument', 'no', 'dcs', 'currinst', instrument, None, None, warning] # current instrument check
     ]
 
-    reportStage(settings_dic)
+    reportStages('settings', settings_dic)
 
+#----------------------------------------
+# print final status...
+#----------------------------------------
+
+print("-----------------------------------------------------------------------------")
+if n_errors == 0 and n_warnings == 0:
+    print("\tAll tested %s systems appear functional.\n" % instrument)
+else:
+   print("\t%d errors and %d warnings were issued.\n" % (n_errors, n_warnings))
+
+print("Please visually check Glycol flow. This script only checks glycol pump power.")
+print("-----------------------------------------------------------------------------")
+
+if n_errors > 0:  
+    sys.exit(n_errors)
+elif n_warnings > 0:  
+    sys.exit(-n_warnings)
