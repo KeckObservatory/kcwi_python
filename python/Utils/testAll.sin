@@ -1,14 +1,16 @@
 #! /kroot/rel/default/bin/kpython
 import subprocess
 import argparse
+import os
+import sys
 
 defsystems = ['computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages'] #default system values
 #TODO see if we need to add -m option
-#TODO figure out how to allow no argument
 description = "check functionality of all KCWI systems"
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('systems', nargs='*', help='choose which systems to check (default is all EXCEPT apps)')
 args = parser.parse_args()
+
 
 #TODO for some reason, adding choices to the systems argument doesn't allow for no arguments
 #this does the choices check instead, should redo when I figure out issue
@@ -25,37 +27,44 @@ else:
 def labelize(string):
     size = 45
     label = ' %s' % string
-    print(label)
     while(len(label) < size):
         label += '.'
     return label
 
 #reportStages function
 #TODO write this
+
+
 def reportStages(system):
+    print("Checking %s %s:" % (instrument, system))
+
+    for record in system_dic:
+        (library, keyword) = (record[2], record[3])
+        if record[1] = yes:
+            #TODO use ktl to extract
+            name  = "show -s $library -terse %s" % record[0]
+        else:   
+            name = record[0]
+
+    sys.stdout.write(labelize("Checking %s" % server))
+    sys.stdout.flush()
+
+    #TODO use ktl here
+    value = "show -s %s -terse %s" % (library, keyword)
+
+    if 'tmp' in keyword and keyword != -1:
+        value = value - 273.15
+
+
 
 
 # misc definitions...
 instrument = 'KCWI'
 (good, warning, error) = ("OK", "WARNING!", "ERROR!") 
-
-
-#defining variables
 n_errors = 0 # number of errors
 n_warnings = 0 # number of errors
-#my( $key, $value); TODO not sure about these two or the one below
-#my( $type, $pid);
-server_name = ''
-computer = ''
-command = []
-system = ''
-command = ''
-#my( $state, $message);
-options = {}
-
 
 # verify host...
-#make sure you run on right computer
 
 goodhost ='kcwiserver'
 testhost = 'kcwibuild'
@@ -95,6 +104,7 @@ if 'computers' in systems:
         else:
             print("%s (%s)" % (error, computer_description[computer]))
             n_errors+=1
+
 
 #----------------------------------------
 # Check servers
