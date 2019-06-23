@@ -6,7 +6,7 @@ import sys
 import ktl
 
 #LR move the definition of systems to a configuration file to be loaded
-#LR replace with a plan english variable name like defined_systems
+#LR replace with a plan english variable 'name' like defined_systems
 defsystems = ['computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages'] 
 
 #TODO see if we need to add -m option
@@ -69,18 +69,18 @@ def labelize(string):
 #LR while a plain english variable name is easier to understad
 
 def reportStages(system, system_dic):
-    #global n_errors
-    #global n_warnings
+    global n_errors
+    global n_warnings
     print("Checking %s %s:" % (instrument, system))
 
     for record in system_dic:
         state = good
         message = ''
-        (library, keyword) = (record[2], record[3])
-        if record[1] == 'yes':
-            name  = ktl.read(library, record[0])
+        (library, keyword) = (record['library'], record['keyword'])
+        if record['isnameakeyword'] == 'yes':
+            name  = ktl.read(library, record['name'])
         else:   
-            name = record[0]
+            name = record['name']
 
         sys.stdout.write(labelize("Checking %s" % name))
         sys.stdout.flush()
@@ -90,21 +90,21 @@ def reportStages(system, system_dic):
         if 'tmp' in keyword and keyword != -1:
             value = float(value) - 273.15
 
-        if record[5] is None: #if maxvalue column is none, do goodvalue check
-            if value != record[4]:
-                state = record[7]
-                message = "Current value '%s' should be %s" % (value, record[4])
+        if record['maxvalue'] is None: #if 'maxvalue' column is none, do goodvalue check
+            if value != record['goodorminvalue']:
+                state = record['badstatus']
+                message = "Current value '%s' should be %s" % (value, record['goodorminvalue'])
         else:
-            if record[4] > float(value) or float(value) > record[5]:
-                state = record[7]
-                message = "Current value %s outside of good range %s - %s" % (value, record[4], record[5])
+            if record['goodorminvalue'] > float(value) or float(value) > record['maxvalue']:
+                state = record['badstatus']
+                message = "Current value %s outside of good range %s - %s" % (value, record['goodorminvalue'], record['maxvalue'])
 
-        if record[6] is not None: #check for locked
+        if record['locked'] is not None: #check for 'locked'
             try:
                 ktl.read(library, 'lastalive')
-                value = ktl.read(library, record[6])
+                value = ktl.read(library, record['locked'])
                 if int(value) != 0:
-                    state = record[7]
+                    state = record['badstatus']
                     message = 'stage is locked out'
             except:
                 state = warning
@@ -271,8 +271,8 @@ if 'daemons' in systems:
 #LR record[1]. The only way to know what record[1] means, is to go back to the definition.
 #a different approach would be:
 # power_dic = [
-#      {name: 'pwname1', isnameakeyword:'yes', library:'kp1s', keyword:'pwstat1', goodvalue='1', ...},
-#      {name: 'pwname2', ....}
+#      {'name': 'pwname1', 'isnameakeyword':'yes', 'library':'kp1s', keyword:'pwstat1', goodvalue='1', ...},
+#      {'name': 'pwname2', ....}
 #      ]
 # it's a lot more typing, but it make access a lot easier because then you can write:
 # record['name'] instead of record[0], and the value you are trying to access is a lot easier to understand.
@@ -281,30 +281,30 @@ if 'daemons' in systems:
 if 'power' in systems:
     #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, GOODVAULE, BADSTATUS]
     power_dic = [
-        ['pwname1', 'yes', 'kp1s', 'pwstat1', '1', None, None, warning], # power strip 1, pos 1 FPCam
-        ['pwname2', 'yes', 'kp1s', 'pwstat2', '1', None, None, error], # power strip 1, pos 2 Magiq
-        ['pwname3', 'yes', 'kp1s', 'pwstat3', '1', None, None, error], # power strip 1, pos 3 Glycol
-       #['pwname4', 'yes', 'kp1s', 'pwstat4', '1', None, None, error], # power strip 1 pos 4 Lkshore1
-        ['pwname5', 'yes', 'kp1s', 'pwstat5', '1', None, None, error], # power strip 1 pos 5 BPGauge
-        ['pwname6', 'yes', 'kp1s', 'pwstat6', '1', None, None, error], # power strip 1 pos 6 BVacIon
-        ['pwname7', 'yes', 'kp1s', 'pwstat7', '1', None, None, warning], # power strip 1 pos 7 Hatch
-        ['pwname8', 'yes', 'kp1s', 'pwstat8', '1', None, None, warning], # power strip 1 pos 8 BShutter
-        ['pwname1', 'yes', 'kp2s', 'pwstat1', '1', None, None, error], # power strip 2 pos 1 HeatExchanger
-        ['pwname2', 'yes', 'kp2s', 'pwstat2', '1', None, None, error], # power strip 2 pos 2 BDet
-        ['pwname3', 'yes', 'kp2s', 'pwstat3', '0', None, None, error], # power strip 2 pos 3 Unused
-        ['pwname4', 'yes', 'kp2s', 'pwstat4', '1', None, None, error], # power strip 2 pos 4 Lkshore2
-        ['pwname5', 'yes', 'kp2s', 'pwstat5', '1', None, None, error], # power strip 2 pos 5 Lantrnx1
-        ['pwname6', 'yes', 'kp2s', 'pwstat6', '0', None, None, error], # power strip 2 pos 6 Unused
-        ['pwname7', 'yes', 'kp2s', 'pwstat7', '1', None, None, error], # power strip 2 pos 7 PB2:BEX;BMS
-        ['pwname8', 'yes', 'kp2s', 'pwstat8', '0', None, None, error], # power strip 2 pos 8 Unused
-        ['pwname1', 'yes', 'kp3s', 'pwstat1', '1', None, None, error], # power strip 3 pos 1 CalLamps
-        ['pwname2', 'yes', 'kp3s', 'pwstat2', '0', None, None, error], # power strip 3 pos 2 Unused
-        ['pwname3', 'yes', 'kp3s', 'pwstat3', '0', None, None, error], # power strip 3 pos 3 Unused
-        ['pwname4', 'yes', 'kp3s', 'pwstat4', '0', None, None, error], # power strip 3 pos 4 Unused
-        ['pwname5', 'yes', 'kp3s', 'pwstat5', '0', None, None, error], # power strip 3 pos 5 Unused
-        ['pwname6', 'yes', 'kp3s', 'pwstat6', '0', None, None, error], # power strip 3 pos 6 Unused
-        ['pwname7', 'yes', 'kp3s', 'pwstat7', '0', None, None, error], # power strip 3 pos 7 Unused
-        ['pwname8', 'yes', 'kp3s', 'pwstat8', '1', None, None, error] # power strip 3 pos 8 PB1:CAL;ROT
+        {'name':'pwname1', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat1', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':warning},#powerstrip 1,pos 1 FPCam
+        {'name':'pwname2', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat2', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1, pos 2 Magiq
+        {'name':'pwname3', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat3', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1, pos 3 Glycol
+       #{'name':'pwname4', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat4', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1 pos 4 Lkshore1
+        {'name':'pwname5', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat5', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1 pos 5 BPGauge
+        {'name':'pwname6', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat6', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1 pos 6 BVacIon
+        {'name':'pwname7', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat7', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':warning},#powerstrip 1 pos 7 Hatch
+        {'name':'pwname8', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat8', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':warning},#powerstrip 1 pos 8 BShutter
+        {'name':'pwname1', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat1', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip2pos1 HeatExchanger
+        {'name':'pwname2', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat2', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 2 pos 2 BDet
+        {'name':'pwname3', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat3', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, #power strip 2 pos 3 Unused
+        {'name':'pwname4', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat4', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error}, #power strip 2 pos 4 Lkshore2
+        {'name':'pwname5', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat5', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error}, #power strip 2 pos 5 Lantrnx1
+        {'name':'pwname6', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat6', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 2 pos 6 Unused
+        {'name':'pwname7', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat7', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error}, #powerstrip2pos7 PB2:BEX;BMS
+        {'name':'pwname8', 'isnameakeyword':'yes', 'library':'kp2s', 'keyword':'pwstat8', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 2 pos 8 Unused
+        {'name':'pwname1', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat1', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error}, #power strip 3 pos 1 CalLamps
+        {'name':'pwname2', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat2', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 3 pos 2 Unused
+        {'name':'pwname3', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat3', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 3 pos 3 Unused
+        {'name':'pwname4', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat4', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 3 pos 4 Unused
+        {'name':'pwname5', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat5', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 3 pos 5 Unused
+        {'name':'pwname6', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat6', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 3 pos 6 Unused
+        {'name':'pwname7', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat7', 'goodorminvalue':'0', 'maxvalue':None, 'locked':None, 'badstatus':error}, # power strip 3 pos 7 Unused
+        {'name':'pwname8', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat8', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error} #powerstrip3 pos 8 PB1:CAL;ROT
     ]
 
     reportStages('power', power_dic)
@@ -317,20 +317,20 @@ if 'power' in systems:
 if 'stages' in systems:
     #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, GOODVAULE, LOCKED, BADSTATUS]
     stages_dic = [
-        ['Blue exchanger status', 'no', 'kbes', 'status', 'OK', None, 'movelock', warning], # global bes status
-        ['Grating', 'no', 'kbes', 'gstatus', 'Success: Coordinated park motion complete.', None, 'movelock', warning], # Grating 
-        ['Filter', 'no', 'kbes', 'fstatus', 'Success: Coordinated park motion complete.', None, 'movelock', warning], # Filter
-        ['Grating rotator', 'no', 'kbes', 'grstatus', 'Move complete', None, 'movelock', warning], # grating rotator
-        ['Grating pusher', 'no', 'kbes', 'gpstatus', 'Move complete', None, 'movelock', warning], # grating pusher
-        ['Grating transfer', 'no', 'kbes', 'gtstatus', 'Move complete', None, 'movelock', warning], # grating transfer
-        ['Filter pusher', 'no', 'kbes', 'fpstatus', 'Move complete', None, 'movelock', warning], # filter pusher
-        ['Filter transfer', 'no', 'kbes', 'ftstatus', 'Move complete', None, 'movelock', warning], # filter transfer
-        ['Grating and filter cassette', 'no', 'kbes', 'castatus', 'Move complete', None, 'movelock', warning], # grating cassette
-        ['Focus mechanism', 'no', 'kbms', 'focstatus', 'OK', None, 'movelock', warning], # Focus
-        ['Nod and shuffle mask', 'no', 'kbms', 'nasstatus', 'OK', None, 'movelock', warning], # Nod and shuffle
-        ['Articulation stage', 'no', 'kbms', 'artstatus', 'OK', None, 'movelock', warning], # Articulation stage
-        ['IFU', 'no', 'kcas', 'ifustatus', 'OK', None, 'movelock', warning], # IFU
-        ['Calibration unit', 'no', 'kcas', 'status', 'OK', None, 'movelock', warning] # Status
+        {'name':'Blue exchanger status', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'status', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # global bes status
+        {'name':'Grating', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'gstatus', 'goodorminvalue':'Success: Coordinated park motion complete.', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Grating 
+        {'name':'Filter', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'fstatus', 'goodorminvalue':'Success: Coordinated park motion complete.', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Filter
+        {'name':'Grating rotator', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'grstatus', 'goodorminvalue':'Move complete', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # grating rotator
+        {'name':'Grating pusher', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'gpstatus', 'goodorminvalue':'Move complete', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # grating pusher
+        {'name':'Grating transfer', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'gtstatus', 'goodorminvalue':'Move complete', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # grating transfer
+        {'name':'Filter pusher', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'fpstatus', 'goodorminvalue':'Move complete', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # filter pusher
+        {'name':'Filter transfer', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'ftstatus', 'goodorminvalue':'Move complete', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # filter transfer
+        {'name':'Grating and filter cassette', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'castatus', 'goodorminvalue':'Move complete', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # grating cassette
+        {'name':'Focus mechanism', 'isnameakeyword':'no', 'library':'kbms', 'keyword':'focstatus', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Focus
+        {'name':'Nod and shuffle mask', 'isnameakeyword':'no', 'library':'kbms', 'keyword':'nasstatus', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Nod and shuffle
+        {'name':'Articulation stage', 'isnameakeyword':'no', 'library':'kbms', 'keyword':'artstatus', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Articulation stage
+        {'name':'IFU', 'isnameakeyword':'no', 'library':'kcas', 'keyword':'ifustatus', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # IFU
+        {'name':'Calibration unit', 'isnameakeyword':'no', 'library':'kcas', 'keyword':'status', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning} # Status
     ]
 
     reportStages('stages', stages_dic)
@@ -343,21 +343,21 @@ if 'stages' in systems:
 if 'settings' in systems:
     #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, MINVALUE, MAXVALUE, BADSTATUS]
     settings_dic = [
-        ['tmploc1', 'yes', 'kt1s', 'tmp1', -112.15, -108.15, None, warning], # Blue CCD A
-        ['tmploc2', 'yes', 'kt1s', 'tmp2', -5, 5, None, warning], # blue cam B
-        ['tmploc3', 'yes', 'kt1s', 'tmp3', -5, 5, None, warning], # Blue shutter
-        ['tmploc4', 'yes', 'kt1s', 'tmp4', -112.15, -108.15, None, warning], # blue invar plate
-        ['tmploc5', 'yes', 'kt1s', 'tmp5', -140, -120, None, warning], # blue strap bottom
-        ['tmploc6', 'yes', 'kt1s', 'tmp6', -180, -160, None, warning], # blue strap top
-        ['tmploc7', 'yes', 'kt1s', 'tmp7', -5, 5, None, warning], # blue case...
-        ['tmploc8', 'yes', 'kt1s', 'tmp7', -5, 10, None, warning], # bench bottom
-        ['Status (ion pump)', 'no', 'kbvs', 'hvon', '1', None, None, error], # ion pump status
-        ['Pressure (ion pump)', 'no', 'kbvs', 'pressure', 0.0, 0.0000001, None, warning], # ion pump pressure
-        ['Current (ion pump)', 'no', 'kbvs', 'current', 0.0, 0.000002, None, warning], # ion pump current
-        ['Voltage (ion pump)', 'no', 'kbvs', 'voltage', 4900, 5010, None, warning], # ion pump voltage
-        ['Pressure gauge', 'no', 'kbgs', 'pgpress', 0, 0.1, None, warning], # pressure gauge
-        ['CCD power', 'no', 'kbds', 'CCDPOWER', '1', None, None, warning], # datataking system status
-        ['current instrument', 'no', 'dcs', 'currinst', instrument, None, None, warning] # current instrument check
+        {'name':'tmploc1', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp1', 'goodorminvalue':-112.15, 'maxvalue':-108.15, 'locked':None, 'badstatus':warning}, # Blue CCD A
+        {'name':'tmploc2', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp2', 'goodorminvalue':-5, 'maxvalue':5, 'locked':None, 'badstatus':warning}, # blue cam B
+        {'name':'tmploc3', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp3', 'goodorminvalue':-5, 'maxvalue':5, 'locked':None, 'badstatus':warning}, # Blue shutter
+        {'name':'tmploc4', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp4', 'goodorminvalue':-112.15, 'maxvalue':-108.15, 'locked':None, 'badstatus':warning}, # blue invar plate
+        {'name':'tmploc5', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp5', 'goodorminvalue':-140, 'maxvalue':-120, 'locked':None, 'badstatus':warning}, # blue strap bottom
+        {'name':'tmploc6', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp6', 'goodorminvalue':-180, 'maxvalue':-160, 'locked':None, 'badstatus':warning}, # blue strap top
+        {'name':'tmploc7', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp7', 'goodorminvalue':-5, 'maxvalue':5, 'locked':None, 'badstatus':warning}, # blue case...
+        {'name':'tmploc8', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp7', 'goodorminvalue':-5, 'maxvalue':10, 'locked':None, 'badstatus':warning}, # bench bottom
+        {'name':'Status (ion pump)', 'isnameakeyword':'no', 'library':'kbvs', 'keyword':'hvon', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error}, # ion pump status
+        {'name':'Pressure (ion pump)', 'isnameakeyword':'no', 'library':'kbvs', 'keyword':'pressure', 'goodorminvalue':0.0, 'maxvalue':0.0000001, 'locked':None, 'badstatus':warning}, # ion pump pressure
+        {'name':'Current (ion pump)', 'isnameakeyword':'no', 'library':'kbvs', 'keyword':'current', 'goodorminvalue':0.0, 'maxvalue':0.000002, 'locked':None, 'badstatus':warning},#ion pump current
+        {'name':'Voltage (ion pump)', 'isnameakeyword':'no', 'library':'kbvs', 'keyword':'voltage', 'goodorminvalue':4900, 'maxvalue':5010, 'locked':None, 'badstatus':warning},#ion pump voltage
+        {'name':'Pressure gauge', 'isnameakeyword':'no', 'library':'kbgs', 'keyword':'pgpress', 'goodorminvalue':0, 'maxvalue':0.1, 'locked':None, 'badstatus':warning}, # pressure gauge
+        {'name':'CCD power', 'isnameakeyword':'no', 'library':'kbds', 'keyword':'CCDPOWER', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':warning}, #datataking system status
+        {'name':'current instrument', 'isnameakeyword':'no', 'library':'dcs', 'keyword':'currinst', 'goodorminvalue':instrument, 'maxvalue':None, 'locked':None, 'badstatus':warning} # current instrument check
     ]
 
     reportStages('settings', settings_dic)
