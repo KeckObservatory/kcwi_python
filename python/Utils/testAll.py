@@ -6,49 +6,29 @@ import sys
 import ktl
 
 #LR move the definition of systems to a configuration file to be loaded
-#LR replace with a plan english variable 'name' like defined_systems
-defsystems = ['computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages'] 
-
+default_systems = ['computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages'] 
+choices = default_systems
+choices.append('all')
 #TODO see if we need to add -m option
 #LR make "KCWI" a variable, so that it can be used in this string
-description = "check functionality of all KCWI systems"
+# LR move this definition to a configuration file and read it in
+instrument = 'KCWI'
+description = "check functionality of all %s systems" % instrument
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument('systems', nargs='*', help='choose which systems to check (default is all EXCEPT apps)')
+parser.add_argument('systems', nargs='*', choices=choices, default='all', help='choose which systems to check (default is all EXCEPT apps)')
 args = parser.parse_args()
 
-
-#TODO for some reason, adding choices to the systems argument doesn't allow for no arguments
-#this does the choices check instead, should redo when I figure out issue
-
-#LR the fix for this problem, usually, is to use a default value
-#LR my suggestion is to use choices=defsystems, and add default='all'. Of course this also means that you need to add "all" to the possible choices
-#LR so maybe:
-# choices = defsystems
-# choices.append('all')
-# and then add choices=choices and default='all' to the argparse call
-
-#LR then you can get rid of all of the following code
-if args.systems != []: 
-    systems = args.systems
-    for system in systems:
-        if system not in defsystems:
-            print("error: argument systems: invalid choice: [%s] (choose from 'computers', 'servers', 'power', 'settings', 'apps', 'daemons', 'stages')" % system)
-            sys.exit(1)
-else:
+if args.systems == 'all':
     systems = ['computers', 'servers', 'power', 'settings', 'daemons', 'stages'] #list of strings in the system array without apps
-
-# here you would add:
-# if args.systems == 'all':
-#     systems = defsystems
+else:
+    systems = args.systems
 
         
 # misc definitions...
-# LR move this definition to a configuration file and read it in
-instrument = 'KCWI'
 
 (good, warning, error) = ("OK", "WARNING!\a", "ERROR!\a") 
-n_errors = 0 # number of errors
-n_warnings = 0 # number of errors
+error_count = 0 # number of errors
+warning_count = 0 # number of errors
 
 
 #label making function
@@ -61,19 +41,12 @@ def labelize(string):
 
 #reportStages function
 
-# LR SHOULD really try to avoid globals!!
-# a function should be able to access variables defined externally to it
 
-#LR also, as usual, plain english is better than compressed named. systems_dictionary is better then system_dic
-#LR the theory behind this is that every time you compress a variable name, you force your brain to expand it to understand what it means
-#LR while a plain english variable name is easier to understad
-
-def reportStages(system, system_dic):
-    global n_errors
-    global n_warnings
+def reportStages(system, system_dictionary):
     print("Checking %s %s:" % (instrument, system))
-
-    for record in system_dic:
+    errors = 0
+    warnings = 0
+    for record in system_dictionary:
         state = good
         message = ''
         (library, keyword) = (record['library'], record['keyword'])
@@ -112,15 +85,15 @@ def reportStages(system, system_dic):
 
 
         if state == error:
-            n_errors += 1
+            errors += 1
         elif state == warning:
-            n_warnings += 1
+            warnings += 1
         elif state != good:
             print("illegal BADSTATUS value is neither ERROR nor WARNING")
-            return
+            return error, warning
 
         print("%s %s" % (state, message))
-    return
+    return errors, warnings
 
 
 # verify host...
@@ -162,7 +135,7 @@ if 'computers' in systems:
             print("%s (%s)" % (good, computer_description[computer]))
         else:
             print("%s (%s)" % (error, computer_description[computer]))
-            n_errors+=1
+            error_count+=1
 
 
 #----------------------------------------
@@ -213,7 +186,7 @@ if 'servers' in systems:
                 print("%s (%s)" % (good, server_description[server]))
             except:
                 print("%s (%s)" % (error, server_description[server]))
-                n_errors+=1
+                error_count+=1
 
 #----------------------------------------
 # Check applications...
@@ -231,10 +204,10 @@ if 'apps' in systems:
         (output, err) = p.communicate()
         if output == '': 
             print(error)
-            n_errors+=1
+            error_count+=1
         elif 'ERROR' in output:
             print(error)
-            n_errors+=1
+            error_count+=1
         else: 
             print(good)
 
@@ -254,10 +227,10 @@ if 'daemons' in systems:
         (output, err) = p.communicate()
         if output == '': 
             print(error)
-            n_errors+=1
+            error_count+=1
         elif 'ERROR' in output:
             print(error)
-            n_errors+=1
+            error_count+=1
         else: 
             print(good)
 
@@ -266,21 +239,9 @@ if 'daemons' in systems:
 # Check power...
 #----------------------------------------
 
-#LR I suggest a slightly different approach, to help readability and debugging.
-#LR here you are using an array of arrays, which is just fine, but forces you to write things like
-#LR record[1]. The only way to know what record[1] means, is to go back to the definition.
-#a different approach would be:
-# power_dic = [
-#      {'name': 'pwname1', 'isnameakeyword':'yes', 'library':'kp1s', keyword:'pwstat1', goodvalue='1', ...},
-#      {'name': 'pwname2', ....}
-#      ]
-# it's a lot more typing, but it make access a lot easier because then you can write:
-# record['name'] instead of record[0], and the value you are trying to access is a lot easier to understand.
-
         
 if 'power' in systems:
-    #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, GOODVAULE, BADSTATUS]
-    power_dic = [
+    power_dictionary = [
         {'name':'pwname1', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat1', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':warning},#powerstrip 1,pos 1 FPCam
         {'name':'pwname2', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat2', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1, pos 2 Magiq
         {'name':'pwname3', 'isnameakeyword':'yes', 'library':'kp1s', 'keyword':'pwstat3', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error},#powerstrip 1, pos 3 Glycol
@@ -307,16 +268,16 @@ if 'power' in systems:
         {'name':'pwname8', 'isnameakeyword':'yes', 'library':'kp3s', 'keyword':'pwstat8', 'goodorminvalue':'1', 'maxvalue':None, 'locked':None, 'badstatus':error} #powerstrip3 pos 8 PB1:CAL;ROT
     ]
 
-    reportStages('power', power_dic)
-
+    errors, warnings = reportStages('power', power_dictionary)
+    error_count += int(errors)
+    warning_count += int(warnings)
 
 #----------------------------------------
 # Check stages...
 #----------------------------------------
 
 if 'stages' in systems:
-    #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, GOODVAULE, LOCKED, BADSTATUS]
-    stages_dic = [
+    stages_dictionary = [
         {'name':'Blue exchanger status', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'status', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # global bes status
         {'name':'Grating', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'gstatus', 'goodorminvalue':'Success: Coordinated park motion complete.', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Grating 
         {'name':'Filter', 'isnameakeyword':'no', 'library':'kbes', 'keyword':'fstatus', 'goodorminvalue':'Success: Coordinated park motion complete.', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning}, # Filter
@@ -333,16 +294,16 @@ if 'stages' in systems:
         {'name':'Calibration unit', 'isnameakeyword':'no', 'library':'kcas', 'keyword':'status', 'goodorminvalue':'OK', 'maxvalue':None, 'locked':'movelock', 'badstatus':warning} # Status
     ]
 
-    reportStages('stages', stages_dic)
-
+    errors, warnings = reportStages('stages', stages_dictionary)
+    error_count += int(errors)
+    warning_count += int(warnings)
 
 #----------------------------------------
 # Check settings...
 #----------------------------------------
 
 if 'settings' in systems:
-    #setup [NAME, ISNAMEAKEYWORD, LIBRARY, KEYWORD, MINVALUE, MAXVALUE, BADSTATUS]
-    settings_dic = [
+    settings_dictionary = [
         {'name':'tmploc1', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp1', 'goodorminvalue':-112.15, 'maxvalue':-108.15, 'locked':None, 'badstatus':warning}, # Blue CCD A
         {'name':'tmploc2', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp2', 'goodorminvalue':-5, 'maxvalue':5, 'locked':None, 'badstatus':warning}, # blue cam B
         {'name':'tmploc3', 'isnameakeyword':'yes', 'library':'kt1s', 'keyword':'tmp3', 'goodorminvalue':-5, 'maxvalue':5, 'locked':None, 'badstatus':warning}, # Blue shutter
@@ -360,22 +321,24 @@ if 'settings' in systems:
         {'name':'current instrument', 'isnameakeyword':'no', 'library':'dcs', 'keyword':'currinst', 'goodorminvalue':instrument, 'maxvalue':None, 'locked':None, 'badstatus':warning} # current instrument check
     ]
 
-    reportStages('settings', settings_dic)
+    errors, warnings = reportStages('settings', settings_dictionary)
+    error_count += int(errors)
+    warning_count += int(warnings)
 
 #----------------------------------------
 # print final status...
 #----------------------------------------
 
 print("-----------------------------------------------------------------------------")
-if n_errors == 0 and n_warnings == 0:
+if error_count == 0 and warning_count == 0:
     print("\tAll tested %s systems appear functional.\n" % instrument)
 else:
-   print("\t%d errors and %d warnings were issued.\n" % (n_errors, n_warnings))
+   print("\t%d errors and %d warnings were issued.\n" % (error_count, warning_count))
 
 print("Please visually check Glycol flow. This script only checks glycol pump power.")
 print("-----------------------------------------------------------------------------")
 
-if n_errors > 0:  
-    sys.exit(n_errors)
-elif n_warnings > 0:  
-    sys.exit(-n_warnings)
+if error_count > 0:  
+    sys.exit(error_count)
+elif warning_count > 0:  
+    sys.exit(-warning_count)
