@@ -59,30 +59,23 @@ disklist.write("/s/sdata1400")
 default = "y"
 yesno = str(raw_input("Do you want to create a new data directory? (y/n) [%s]: " % default))
 
-# no response ==> use default...
 if yesno == "":
     yesno = default
 
-# positive response ==> create new directory...
 if yesno in ['y', 'Y']:
-    #TODO check disklist
-    #subprocess.Popen("newdir", stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
     Procs.newdir()
 
 # set the frame number; default is to use next number in sequence for
 # current output directory...
-#TODO check this Procs function with Luca
 default = str(Procs.get_nextfile(channel='blue'))
-frameno = raw_input("Enter starting blue image number [%s]: " % default)
+frameNumber = raw_input("Enter starting blue image number [%s]: " % default)
 
-if frameno == "":
-    frameno = default
+if frameNumber == "":
+    frameNumber = default
 
-if frameno < 0:
-    frameno = 0
-#TODO check this too
-#setframeb $frameno
-Procs.set_nextframe(channel='blue',number=frameno)
+if frameNumber < 0:
+    frameNumber = 0
+Procs.set_nextframe(channel='blue',number=frameNumber)
 frameroot = str(Procs.frameroot(channel='blue'))
 print("Changing frameroot to %s " % frameroot)
 
@@ -91,19 +84,16 @@ outfile.write(frameroot)
 
 ### FOCAL PLANE CAMERA
 default = str(Procs.get_nextfile(channel='fpc'))
-frameno = raw_input("Enter starting focal plane camera image number [%s]: " % default)
+frameNumber = raw_input("Enter starting focal plane camera image number [%s]: " % default)
 
-if frameno == "":
-    frameno = default
+if frameNumber == "":
+    frameNumber = default
 
-if frameno < 0:
-    frameno = 0
+if frameNumber < 0:
+    frameNumber = 0
 
-#setframefpc $frameno
-Procs.set_nextframe(channel='fpc',number=frameno)
-#@ frameroot = `framerootfpc`
+Procs.set_nextframe(channel='fpc',number=frameNumber)
 
-#JOHNEDIT
 outfile = ktl.cache("kfcs", "outfile")
 outfile.write(str(Procs.frameroot(channel='fpc')))
 
@@ -127,13 +117,9 @@ else:
     if yesno in ['y', 'Y']:
         print("Turning on power to Blue CCD")
 
-        #JOHNEDIT
-        #modify -s kbds ccdpower = 1
         ccdpower = ktl.cache("kbds", "ccdpower")
         ccdpower.write(1)
 
-        #JOHNEDIT added python script
-        #sleepdots 5
         sleepdots(5)
 
 ### Blue CCD settings
@@ -141,11 +127,9 @@ else:
 default = "y"
 yesno = str(raw_input("Do you want to reset the Blue CCD to default settings ? (y/n) [%s]: " % default))
 
-    # no response ==> use default...
 if yesno == "":
     yesno = default
 
-    # positive response ==> reset
 if yesno in ['y', 'Y']:
     print("Resetting detector parameters to their nominal values...")
     Blue.ampmodeb(ampmode=9)
@@ -166,7 +150,6 @@ else:
     default = "y"
     yesno = str(raw_input("Do you want to turn on power to the Magiq Guider? (y/n) [%s]: " % default))
 
-    # no response ==> use default...
     if yesno == "":
         yesno = default
 
