@@ -27,12 +27,12 @@ else:
 # misc definitions...
 
 (good, warning, error) = ("OK", "WARNING!\a", "ERROR!\a") 
-error_count = 0 # number of errors
-warning_count = 0 # number of errors
+error_count = 0
+warning_count = 0
 
 
 #label making function
-def labelize(string):
+def formatLabel(string):
     size = 45
     label = ' %s' % string
     while(len(label) < size):
@@ -55,7 +55,7 @@ def reportStages(system, system_dictionary):
         else:   
             name = record['name']
 
-        sys.stdout.write(labelize("Checking %s" % name))
+        sys.stdout.write(formatLabel("Checking %s" % name))
         sys.stdout.flush()
 
         value = ktl.read(library, keyword)
@@ -98,11 +98,11 @@ def reportStages(system, system_dictionary):
 
 # verify host...
 
-goodhost ='kcwiserver'
-testhost = 'kcwibuild'
-env = os.environ.get('HOST')
-if env != goodhost and env != testhost:
-    print("ERROR: you can only run testAll on %s or on %s" % (goodhost, testhost))
+normalHost ='kcwiserver'
+testHost = 'kcwibuild'
+environment = os.environ.get('HOST')
+if environment != normalHost and environment != testHost:
+    print("ERROR: you can only run testAll on %s or on %s" % (normalHost, testHost))
     sys.exit(1)
 
 
@@ -126,12 +126,14 @@ if 'computers' in systems:
         'lakeshore' : 'Lakeshore unit'
     }
     for computer in sorted(computer_description):
-        sys.stdout.write(labelize("Checking %s" % computer))
+        sys.stdout.write(formatLabel("Checking %s" % computer))
         sys.stdout.flush()
-        command = "ping -c 1 -t 1 %s" % computer
-        p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
-        (output, err) = p.communicate()
-        if err == '':
+        command = "ping -c 1 -t 1 %s >/dev/null 2>&1" % computer
+        #TODO popen was not working the way I thought here, switching to os.system. Check with LR
+        #p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
+        #(output, err) = p.communicate()
+        response = os.system(command)
+        if response == 0:
             print("%s (%s)" % (good, computer_description[computer]))
         else:
             print("%s (%s)" % (error, computer_description[computer]))
@@ -167,7 +169,7 @@ if 'servers' in systems:
     # TODO I'm not sure if there's an easy way to do this in python,
     # instead, checking global server first then running the rest alphabetically
     server = 'kcwi'
-    sys.stdout.write(labelize("Checking %s" % server))
+    sys.stdout.write(formatLabel("Checking %s" % server))
     sys.stdout.flush()
     #TODO kcwi server not working with ktl, using subprocess for now
     command = "show -s %s %s" % (server, keyword)
@@ -179,7 +181,7 @@ if 'servers' in systems:
         print("%s (%s)" % (error, server_description[server]))
     for server in sorted(server_description):
         if server != 'kcwi':
-            sys.stdout.write(labelize("Checking %s" % server))
+            sys.stdout.write(formatLabel("Checking %s" % server))
             sys.stdout.flush()
             try:
                 ktl.read(server, 'lastalive')
@@ -191,13 +193,12 @@ if 'servers' in systems:
 #----------------------------------------
 # Check applications...
 #----------------------------------------
-###TODO for loop used in case we add more apps, I believe
 
 if 'apps' in systems:
     print("Checking %s applications:" % instrument)
     apps = ['ds9']
     for app in apps:
-        sys.stdout.write(labelize("Checking %s" % app))
+        sys.stdout.write(formatLabel("Checking %s" % app))
         sys.stdout.flush()
         command = "get_kcwi_pid %s" % app
         p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
@@ -220,7 +221,7 @@ if 'daemons' in systems:
     print("Checking %s daemons:" % instrument)
     daemons =  ['keygrabber', 'kcwidisplayb', 'watch_dcs_rotator', 'kcwiConfManager']
     for daemon in daemons:
-        sys.stdout.write(labelize("Checking %s" % daemon))
+        sys.stdout.write(formatLabel("Checking %s" % daemon))
         sys.stdout.flush()
         command = "get_kcwi_pid %s" % daemon
         p =  subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True)
